@@ -1,0 +1,59 @@
+---
+// src/pages/login.astro
+// Vista de login simple que usa el endpoint /api/login
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Login</title>
+  </head>
+  <body>
+    <main>
+      <h1>Iniciar sesión</h1>
+      <form id="login-form">
+        <label>
+          Email o usuario
+          <input type="text" name="identifier" required />
+        </label>
+        <label>
+          Contraseña
+          <input type="password" name="password" required />
+        </label>
+        <button type="submit">Entrar</button>
+        <p id="error" style="color:red;"></p>
+      </form>
+    </main>
+
+    <script>
+      const form = document.getElementById('login-form');
+      const errorEl = document.getElementById('error');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorEl.textContent = '';
+
+        const formData = new FormData(form);
+        const identifier = formData.get('identifier');
+        const password = formData.get('password');
+
+        try {
+          const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password }),
+          });
+
+          if (!res.ok) {
+            throw new Error('Credenciales inválidas');
+          }
+
+          await res.json();
+          window.location.href = '/dashboard';
+        } catch (err) {
+          errorEl.textContent = err.message;
+        }
+      });
+    </script>
+  </body>
+</html>
