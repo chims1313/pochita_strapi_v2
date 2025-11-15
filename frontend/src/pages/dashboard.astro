@@ -1,0 +1,51 @@
+---
+// src/pages/dashboard.astro
+// Dashboard protegido que lee las cookies de Astro y muestra info básica del usuario
+
+const token = Astro.cookies.get('token')?.value;
+const userCookie = Astro.cookies.get('user')?.value;
+
+if (!token || !userCookie) {
+  return Astro.redirect('/login');
+}
+
+let user = null;
+
+try {
+  user = JSON.parse(userCookie);
+} catch {
+  user = null;
+}
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const roleName = user.role?.name || 'Sin rol';
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard</title>
+  </head>
+  <body>
+    <main>
+      <h1>Dashboard</h1>
+      <p>Hola, {user.username || user.email}.</p>
+      <p>Tu rol es: <strong>{roleName}</strong></p>
+
+      <nav>
+        {roleName === 'Recepcionista' && (
+          <a href="#">Gestión de citas (ejemplo)</a>
+        )}
+        {roleName === 'Veterinario' && (
+          <a href="#">Pacientes asignados (ejemplo)</a>
+        )}
+        {roleName === 'Cliente' && (
+          <a href="#">Mis citas (ejemplo)</a>
+        )}
+      </nav>
+    </main>
+  </body>
+</html>
