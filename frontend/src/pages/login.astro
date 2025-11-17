@@ -11,6 +11,8 @@ if (Astro.request.method === "POST") {
     const identifier = formData.get("username");
     const password = formData.get("password");
 
+    console.log('🔐 Intentando login con:', identifier);
+
     // 1) Login: /api/auth/local
     const authResponse = await fetch(`${STRAPI_URL}/api/auth/local`, {
       method: "POST",
@@ -21,10 +23,12 @@ if (Astro.request.method === "POST") {
     const authData = await authResponse.json();
 
     if (!authResponse.ok) {
-      console.error("Error Strapi login:", authResponse.status, authData);
+      console.error("❌ Error Strapi login:", authResponse.status, authData);
       error = authData?.error?.message || `Error ${authResponse.status}`;
     } else {
       const jwt = authData.jwt;
+
+      console.log('✅ JWT recibido de Strapi');
 
       // 2) Obtener usuario con rol populado: /api/users/me?populate=role
       const meResponse = await fetch(
@@ -39,27 +43,32 @@ if (Astro.request.method === "POST") {
       const meData = await meResponse.json();
 
       if (!meResponse.ok) {
-        console.error("Error obteniendo /users/me:", meResponse.status, meData);
+        console.error("❌ Error obteniendo /users/me:", meResponse.status, meData);
         error = meData?.error?.message || `Error ${meResponse.status}`;
       } else {
-        // Guardar JWT y usuario (con rol) en cookies
-        Astro.cookies.set("jwt", jwt, {
+        // ⬅️ CRÍTICO: Crear objeto con TODA la info incluyendo JWT
+        const userCookie = {
+          id: meData.id,
+          username: meData.username,
+          email: meData.email,
+          jwt: jwt,  // ⬅️ AGREGAR EL JWT AQUÍ
+          role: meData.role,
+        };
+
+        console.log('✅ Guardando cookie con JWT');
+
+        // Guardar todo en UNA sola cookie 'user'
+        Astro.cookies.set("user", JSON.stringify(userCookie), {
           path: "/",
-          httpOnly: true,
+          httpOnly: false,  // ⬅️ DEBE ser false para que SSR pueda leerla
           secure: import.meta.env.PROD,
-          sameSite: "strict",
+          sameSite: "lax",
           maxAge: 60 * 60 * 24 * 7, // 7 días
         });
 
-        Astro.cookies.set("user", JSON.stringify(meData), {
-          path: "/",
-          secure: import.meta.env.PROD,
-          sameSite: "strict",
-          maxAge: 60 * 60 * 24 * 7,
-        });
+        const roleName = meData.role?.name || meData.role?.type || "authenticated";
 
-        const roleName =
-          meData.role?.name || meData.role?.type || "authenticated";
+        console.log('🚀 Redirigiendo a dashboard según rol:', roleName);
 
         if (roleName === "Veterinario" || roleName === "veterinario") {
           return Astro.redirect("/dashboard_veterinario");
@@ -74,11 +83,12 @@ if (Astro.request.method === "POST") {
       }
     }
   } catch (e) {
-    console.error("Error en login:", e);
+    console.error("💥 Error en login:", e);
     error = "Error de servidor";
   }
 }
 ---
+
 
 <html lang="es">
   <head>
@@ -258,6 +268,39 @@ if (Astro.request.method === "POST") {
           } catch (err) {
             showError(registerPanel, "Error de red o servidor");
             console.error(err);
+          }
+        });
+      </script>
+      <script>
+        // Client-side login handler: envía credenciales a /api/login y redirige
+        document.querySelector('#login-form')?.addEventListener('submit', async function handleLogin(e) {
+          e.preventDefault();
+          const form = e.target;
+          const formData = new FormData(form);
+          const identifier = formData.get('username') || formData.get('email');
+          const password = formData.get('password');
+
+          try {
+            const res = await fetch('/api/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ identifier, password }),
+            });
+
+            const data = await res.json();
+
+            if (data.ok) {
+              // Esperar un momento para que la cookie se propague
+              await new Promise(resolve => setTimeout(resolve, 100));
+              // Redirigir al dashboard genérico (la app también redirige por rol en SSR)
+              window.location.href = '/dashboard';
+            } else {
+              alert('Error: ' + (data.error || 'Login fallido'));
+            }
+          } catch (err) {
+            console.error('Error en login:', err);
+            alert('Error de conexión');
           }
         });
       </script>

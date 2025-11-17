@@ -4,7 +4,8 @@
   "info": {
     "singularName": "mascota",
     "pluralName": "mascotas",
-    "displayName": "mascota"
+    "displayName": "mascota",
+    "description": "Mascotas registradas por clientes"
   },
   "options": {
     "draftAndPublish": true
@@ -12,22 +13,24 @@
   "pluginOptions": {},
   "attributes": {
     "nombre": {
-      "type": "text",
-      "maxLength": 20
+      "type": "string",
+      "required": true,
+      "maxLength": 50
     },
     "especie": {
       "type": "enumeration",
-      "default": "valores: perro,gato,ave,otro",
-      "enum": [
-        "valores: perro,gato,ave,otro"
-      ]
+      "enum": ["perro", "gato", "ave", "otro"],
+      "default": "perro",
+      "required": true
     },
     "raza": {
-      "type": "text",
-      "maxLength": 20
+      "type": "string",
+      "maxLength": 50
     },
     "edad": {
-      "type": "integer"
+      "type": "integer",
+      "min": 0,
+      "max": 50
     },
     "notas": {
       "type": "text"
