@@ -1,0 +1,265 @@
+---
+import "../styles/pochita.css";
+
+const STRAPI_URL = import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
+
+let error = "";
+
+if (Astro.request.method === "POST") {
+  try {
+    const formData = await Astro.request.formData();
+    const identifier = formData.get("username");
+    const password = formData.get("password");
+
+    // 1) Login: /api/auth/local
+    const authResponse = await fetch(`${STRAPI_URL}/api/auth/local`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, password }),
+    });
+
+    const authData = await authResponse.json();
+
+    if (!authResponse.ok) {
+      console.error("Error Strapi login:", authResponse.status, authData);
+      error = authData?.error?.message || `Error ${authResponse.status}`;
+    } else {
+      const jwt = authData.jwt;
+
+      // 2) Obtener usuario con rol populado: /api/users/me?populate=role
+      const meResponse = await fetch(
+        `${STRAPI_URL}/api/users/me?populate=role`,
+        {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        }
+      );
+
+      const meData = await meResponse.json();
+
+      if (!meResponse.ok) {
+        console.error("Error obteniendo /users/me:", meResponse.status, meData);
+        error = meData?.error?.message || `Error ${meResponse.status}`;
+      } else {
+        // Guardar JWT y usuario (con rol) en cookies
+        Astro.cookies.set("jwt", jwt, {
+          path: "/",
+          httpOnly: true,
+          secure: import.meta.env.PROD,
+          sameSite: "strict",
+          maxAge: 60 * 60 * 24 * 7, // 7 días
+        });
+
+        Astro.cookies.set("user", JSON.stringify(meData), {
+          path: "/",
+          secure: import.meta.env.PROD,
+          sameSite: "strict",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+
+        const roleName =
+          meData.role?.name || meData.role?.type || "authenticated";
+
+        if (roleName === "Veterinario" || roleName === "veterinario") {
+          return Astro.redirect("/dashboard_veterinario");
+        } else if (
+          roleName === "Recepcionista" ||
+          roleName === "recepcionista"
+        ) {
+          return Astro.redirect("/dashboard_recepcionista");
+        } else {
+          return Astro.redirect("/cliente_dashboard");
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error en login:", e);
+    error = "Error de servidor";
+  }
+}
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Login | Veterinaria Pochita</title>
+  </head>
+  <body>
+    <header class="main-nav">
+      <a href="/" class="brand-link">
+        <span class="site-name">Veterinaria Pochita</span>
+      </a>
+      <div class="nav-buttons">
+        <a href="/" class="nav-btn">Inicio</a>
+      </div>
+    </header>
+
+    <main class="site-container auth-panels">
+      <!-- Panel de LOGIN -->
+      <section class="login-container panel panel-login panel-visible" id="panel-login">
+        <h1 class="auth-title">Iniciar sesión</h1>
+        <p class="auth-subtitle">
+          Accede con tu cuenta de cliente, veterinario o recepcionista.
+        </p>
+
+        {error && <p class="form-error">{error}</p>}
+
+        <form method="POST" id="login-form">
+          <label>
+            Usuario o email
+            <input type="text" name="username" required />
+          </label>
+
+          <label>
+            Contraseña
+            <input type="password" name="password" required />
+          </label>
+
+          <button type="submit">Entrar</button>
+        </form>
+
+        <p class="hint-text">
+          ¿No tienes cuenta?
+          <button type="button" class="link-like" id="btn-show-register">
+            Crear cuenta
+          </button>
+        </p>
+      </section>
+
+      <!-- Panel de REGISTER (solo UI, puedes conectar a /auth/local/register luego) -->
+      <section class="login-container panel panel-register" id="panel-register">
+        <h1 class="auth-title">Crear cuenta</h1>
+        <p class="auth-subtitle">
+          Registra una cuenta para agendar citas y gestionar tus mascotas.
+        </p>
+
+        <form method="POST" id="register-form">
+          <label>
+            Usuario
+            <input type="text" name="username" required />
+          </label>
+
+          <label>
+            Email
+            <input type="email" name="email" required />
+          </label>
+
+          <label>
+            Contraseña
+            <input type="password" name="password" required />
+          </label>
+
+          <button type="submit">Registrarse</button>
+        </form>
+
+        <p class="hint-text">
+          ¿Ya tienes cuenta?
+          <button type="button" class="link-like" id="btn-show-login">
+            Volver a iniciar sesión
+          </button>
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const loginPanel = document.getElementById("panel-login");
+      const registerPanel = document.getElementById("panel-register");
+      const btnShowRegister = document.getElementById("btn-show-register");
+      const btnShowLogin = document.getElementById("btn-show-login");
+
+      function showRegister() {
+        if (!loginPanel || !registerPanel) return;
+        loginPanel.classList.remove("panel-visible");
+        loginPanel.classList.add("panel-hidden");
+        registerPanel.classList.remove("panel-hidden");
+        registerPanel.classList.add("panel-visible");
+      }
+
+      function showLogin() {
+        if (!loginPanel || !registerPanel) return;
+        registerPanel.classList.remove("panel-visible");
+        registerPanel.classList.add("panel-hidden");
+        loginPanel.classList.remove("panel-hidden");
+        loginPanel.classList.add("panel-visible");
+      }
+
+      btnShowRegister?.addEventListener("click", showRegister);
+      btnShowLogin?.addEventListener("click", showLogin);
+    </script>
+      <script>
+        const STRAPI_URL = import.meta.env?.PUBLIC_STRAPI_URL || "http://localhost:1337";
+
+        const registerForm = document.getElementById("register-form") as HTMLFormElement | null;
+        const registerPanel = document.getElementById("panel-register") as HTMLElement | null;
+
+        function showError(panel: HTMLElement | null, msg: string) {
+          if (!panel) return;
+          let el = panel.querySelector(".form-error");
+          if (!el) {
+            el = document.createElement("p");
+            el.className = "form-error";
+            const form = panel.querySelector("form");
+            if (form) panel.insertBefore(el, form);
+            else panel.appendChild(el);
+          }
+          el.textContent = msg;
+        }
+
+        registerForm?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const formData = new FormData(registerForm as HTMLFormElement);
+          const username = formData.get("username");
+          const email = formData.get("email");
+          const password = formData.get("password");
+
+          try {
+            // 1) Crear usuario
+            const res = await fetch(`${STRAPI_URL}/api/auth/local/register`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, email, password }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+              showError(registerPanel, data?.error?.message || `Error ${res.status}`);
+              return;
+            }
+
+            // Si registro requiere confirmación por email, puede no venir JWT
+            if (!data.jwt) {
+              window.location.href = "/login?confirmEmail=1";
+              return;
+            }
+
+            // 2) Obtener usuario y role
+            const me = await fetch(`${STRAPI_URL}/api/users/me?populate=role`, {
+              headers: { Authorization: `Bearer ${data.jwt}` },
+            });
+
+            const meData = await me.json();
+
+            if (!me.ok) {
+              showError(registerPanel, meData?.error?.message || `Error ${me.status}`);
+              return;
+            }
+
+            const roleName = meData.role?.name || meData.role?.type || "authenticated";
+            if (roleName === "Veterinario" || roleName === "veterinario") {
+              window.location.href = "/dashboard_veterinario";
+            } else if (roleName === "Recepcionista" || roleName === "recepcionista") {
+              window.location.href = "/dashboard_recepcionista";
+            } else {
+              window.location.href = "/cliente_dashboard";
+            }
+          } catch (err) {
+            showError(registerPanel, "Error de red o servidor");
+            console.error(err);
+          }
+        });
+      </script>
+  </body>
+</html>

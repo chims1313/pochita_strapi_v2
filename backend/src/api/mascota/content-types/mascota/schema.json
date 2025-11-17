@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "mascotas",
+  "info": {
+    "singularName": "mascota",
+    "pluralName": "mascotas",
+    "displayName": "mascota"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nombre": {
+      "type": "text",
+      "maxLength": 20
+    },
+    "especie": {
+      "type": "enumeration",
+      "default": "valores: perro,gato,ave,otro",
+      "enum": [
+        "valores: perro,gato,ave,otro"
+      ]
+    },
+    "raza": {
+      "type": "text",
+      "maxLength": 20
+    },
+    "edad": {
+      "type": "integer"
+    },
+    "notas": {
+      "type": "text"
+    },
+    "dueno": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "mascotas_cliente"
+    }
+  }
+}

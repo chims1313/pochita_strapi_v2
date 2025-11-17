@@ -1,0 +1,269 @@
+---
+import "../styles/pochita.css";
+import { Astro } from "astro";
+
+const STRAPI_URL = import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
+
+// Leer cookie de usuario (igual que ya tenías)
+const userCookie = Astro.cookies.get("user")?.value;
+let user = null;
+try {
+  user = userCookie ? JSON.parse(userCookie) : null;
+} catch {
+  user = null;
+}
+
+const roleName = user?.role?.name || user?.role?.type || "authenticated";
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (roleName !== "Recepcionista" && roleName !== "recepcionista") {
+  return Astro.redirect("/cliente_dashboard");
+}
+
+const displayName = user.username || user.email || "recepcionista";
+
+const today = new Date().toLocaleDateString("es-CL", {
+  weekday: "long",
+  day: "2-digit",
+  month: "2-digit",
+});
+
+// Pedir veterinarios a nuestro endpoint en Strapi
+const vetsRes = await fetch(`${STRAPI_URL}/api/veterinarios`);
+let vets = [];
+if (vetsRes.ok) {
+  vets = await vetsRes.json(); // el controlador devuelve ya un array simple
+} else {
+  console.error('ERROR cargando veterinarios:', vetsRes.status, await vetsRes.text());
+  vets = [];
+}
+
+// Cargar citas reales
+const citasRes = await fetch(
+  `${STRAPI_URL}/api/citas?sort[0]=fecha:asc&sort[1]=hora:asc&populate[veterinario]=true`
+);
+let citas = [];
+if (citasRes.ok) {
+  const json = await citasRes.json();
+  citas = (json.data || []).map((item) => {
+    const attrs = item.attributes || {};
+    return {
+      id: item.id,
+      fecha: attrs.fecha,
+      hora: attrs.hora,
+      motivo: attrs.motivo,
+      estado: attrs.estado,
+      veterinario: attrs.veterinario?.data?.attributes?.username || attrs.veterinario?.username || 'Sin asignar',
+      mascota: attrs.mascotaNombre || attrs.mascota || 'Pochita',
+      dueno: attrs.duenoNombre || attrs.dueno || 'Desconocido',
+    };
+  });
+} else {
+  console.error('ERROR cargando citas:', citasRes.status, await citasRes.text());
+  citas = [];
+}
+
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Panel de recepción | Veterinaria Pochita</title>
+  </head>
+  <body>
+    <!-- Barra superior -->
+    <header class="main-nav">
+      <a href="/" class="brand-link">
+        <span class="site-name">Veterinaria Pochita</span>
+      </a>
+      <div class="nav-buttons">
+        <span class="nav-user">Rol: {roleName}</span>
+        <a href="/logout" class="nav-btn">Cerrar sesión</a>
+      </div>
+    </header>
+
+    <main class="site-container">
+      <!-- Cabecera centrada -->
+      <section class="dashboard-header dashboard-header--center">
+        <div>
+          <h1 class="dashboard-title">Panel de recepción</h1>
+          <p class="dashboard-subtitle">
+            Bienvenida, {displayName}. Hoy es {today}.
+          </p>
+        </div>
+      </section>
+
+      <section class="dashboard-grid">
+        <!-- Resumen general -->
+        <article class="card">
+          <header class="card-header">
+            <h2>Resumen de hoy</h2>
+          </header>
+          <div class="card-body">
+            <ul class="summary-list">
+              <li><strong>8</strong> citas agendadas</li>
+              <li><strong>2</strong> pacientes en sala de espera</li>
+              <li><strong>1</strong> cancelación</li>
+            </ul>
+            <p class="hint-text">
+              Este resumen es de ejemplo; luego se puede conectar a Strapi para
+              mostrar datos reales de las citas del día.
+            </p>
+          </div>
+        </article>
+
+        <!-- Agendar cita rápida -->
+        <article class="card">
+          <header class="card-header">
+            <h2>Agendar cita rápida</h2>
+          </header>
+          <div class="card-body">
+            <p class="card-text">
+              Registra una nueva cita para un paciente en pocos pasos.
+            </p>
+            <form method="post" action="/api/appointments" class="appointment-form" id="appointment-form">
+              <input type="hidden" name="citaId" id="citaId" />
+              <label class="campo-label">
+                Nombre del dueño
+                <input
+                  name="dueno"
+                  type="text"
+                  placeholder="Ej: Juan Pérez"
+                  class="campo-input"
+                />
+              </label>
+
+              <label class="campo-label">
+                Nombre de la mascota
+                <input
+                  name="mascota"
+                  type="text"
+                  placeholder="Ej: Pochita"
+                  class="campo-input"
+                />
+              </label>
+
+              <label class="campo-label">
+                Motivo
+                <input
+                  name="motivo"
+                  type="text"
+                  placeholder="Ej: Vacunas"
+                  class="campo-input"
+                />
+              </label>
+
+              <label class="campo-label">
+                Fecha
+                <input name="fecha" type="date" class="campo-input" />
+              </label>
+
+              <label class="campo-label">
+                Hora
+                <input name="hora" type="time" class="campo-input" />
+              </label>
+
+              <label class="campo-label">
+                Veterinario asignado
+                <select name="veterinario" class="campo-input">
+                    {vets.map((vet) => (
+                      <option key={vet.id} value={vet.id}>{vet.username}</option>
+                    ))}
+                </select>
+              </label>
+
+              <button type="submit" class="btn-primary">
+                Guardar cita
+              </button>
+            </form>
+            <p class="hint-text">
+              Más adelante este formulario puede enviar los datos a Strapi
+              para crear el registro de cita en la base de datos.
+            </p>
+          </div>
+        </article>
+
+        <!-- Lista de pacientes en sala de espera -->
+        <article class="card card-wide">
+          <header class="card-header">
+            <h2>Sala de espera</h2>
+          </header>
+          <div class="card-body">
+            <table class="waiting-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Mascota</th>
+                  <th>Dueño</th>
+                  <th>Hora llegada</th>
+                  <th>Motivo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {citas.length === 0 && (
+                  <tr>
+                    <td colspan="6">No hay citas en espera.</td>
+                  </tr>
+                )}
+
+                {citas.map((cita, index) => (
+                  <tr>
+                    <td>{index + 1}</td>
+                    <td>{cita.mascota}</td>
+                    <td>{cita.dueno}</td>
+                    <td>{cita.hora ? cita.hora.slice(0, 5) : ''}</td>
+                    <td>{cita.motivo}</td>
+                    <td>
+                      <div class="acciones-menu">
+                        <button
+                          type="button"
+                          class="btn-acciones"
+                          data-cita-id={cita.id}
+                          data-cita-fecha={cita.fecha}
+                          data-cita-hora={cita.hora ? cita.hora.slice(0, 5) : ''}
+                          data-cita-motivo={cita.motivo}
+                        >
+                          ⋮
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("appointment-form");
+        if (!form) return;
+        const citaIdInput = document.getElementById("citaId");
+        const fechaInput = form.querySelector('input[name="fecha"]');
+        const horaInput = form.querySelector('input[name="hora"]');
+        const motivoInput = form.querySelector('input[name="motivo"]');
+
+        document.querySelectorAll(".btn-acciones").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.citaId;
+            const fecha = btn.dataset.citaFecha;
+            const hora = btn.dataset.citaHora;
+            const motivo = btn.dataset.citaMotivo;
+
+            if (citaIdInput) citaIdInput.value = id || "";
+            if (fechaInput) fechaInput.value = fecha || "";
+            if (horaInput) horaInput.value = hora || "";
+            if (motivoInput) motivoInput.value = motivo || "";
+
+            form.scrollIntoView({ behavior: "smooth" });
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

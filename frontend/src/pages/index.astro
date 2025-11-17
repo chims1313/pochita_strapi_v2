@@ -1,16 +1,204 @@
 ---
-
+import "../styles/home_page.css";
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Veterinaria Pochita</title>
+    <style>
+      /* Responsive enhancements */
+      @media (max-width: 768px) {
+        .lobby-header {
+          flex-direction: column;
+          text-align: center;
+          gap: 1rem;
+        }
+
+        .lobby-header h1 {
+          font-size: 1.5rem;
+        }
+
+        .btn-login {
+          width: 100%;
+          text-align: center;
+        }
+
+        .content-section {
+          padding: 20px;
+        }
+
+        .content-section h2 {
+          font-size: 1.5rem;
+        }
+
+        .services-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .lobby-container {
+          margin: 20px auto;
+          padding: 10px;
+        }
+
+        .lobby-header {
+          padding: 15px;
+        }
+
+        .lobby-header h1 {
+          font-size: 1.3rem;
+        }
+
+        .content-section {
+          padding: 15px;
+          margin-bottom: 20px;
+        }
+
+        .content-section h2 {
+          font-size: 1.3rem;
+        }
+
+        .service-card {
+          padding: 15px;
+        }
+
+        .btn-login {
+          padding: 10px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="lobby-container">
+      <!-- Header superior -->
+      <header class="lobby-header">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <img src="/pochita-logo.png" alt="Logo Pochita" style="height: 60px; width: 60px; object-fit: contain; border-radius: 8px;" />
+          <h1 style="margin: 0;">Veterinaria Pochita</h1>
+        </div>
+        <a href="/login" class="btn-login">Acceder</a>
+      </header>
+
+      <!-- Contenido principal del lobby -->
+      <section class="content-section">
+        <h2>Bienvenido a tu clínica de confianza</h2>
+        <p>
+          Gestiona las citas, pacientes y atenciones de tu mascota desde un solo lugar,
+          con acceso para clientes, veterinarios y recepcionistas.
+        </p>
+      </section>
+
+      <section class="content-section">
+        <h2>¿Qué puedes hacer aquí?</h2>
+        <div class="services-grid">
+          <article class="service-card">
+            <h3>Agendar citas</h3>
+            <p>Reserva y administra los horarios de atención para tus mascotas.</p>
+          </article>
+          <article class="service-card">
+            <h3>Historial clínico</h3>
+            <p>Revisa las consultas y tratamientos registrados por el veterinario.</p>
+          </article>
+          <article class="service-card">
+            <h3>Recordatorios</h3>
+            <p>Recibe recordatorios de vacunas y controles importantes.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="content-section">
+        <h2>Quiénes somos</h2>
+        <p>
+          En Veterinaria Pochita cuidamos la salud de tus mascotas con un equipo
+          cercano y comprometido. Combinamos atención clínica de calidad con un
+          sistema simple para agendar citas, registrar atenciones y recordar
+          controles y vacunas. Nuestro objetivo es que cada visita sea rápida,
+          clara y amable tanto para tu mascota como para ti.
+        </p>
+        <div class="services-grid">
+          <article class="service-card">
+            <h3>Nuestra misión</h3>
+            <p>
+              Entregar atención preventiva y curativa de calidad, priorizando el
+              bienestar animal y la comunicación con sus tutores.
+            </p>
+          </article>
+          <article class="service-card">
+            <h3>Nuestros valores</h3>
+            <p>
+              Cercanía, transparencia y responsabilidad. Creemos en decisiones
+              informadas y en el seguimiento continuo de cada paciente.
+            </p>
+          </article>
+          <article class="service-card">
+            <h3>Equipo</h3>
+            <p>
+              Veterinarios con experiencia, asistentes y recepción coordinados para
+              reducir tiempos de espera y mejorar tu experiencia.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="content-section">
+        <h2>Preguntas frecuentes</h2>
+
+        <details class="faq">
+          <summary>¿Cómo agendo una cita?</summary>
+          <p>
+            Crea tu cuenta o inicia sesión y, desde el panel del cliente, elige
+            “Agendar nueva cita”. Selecciona fecha, hora y motivo; recepción la
+            confirmará y recibirás un aviso.
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>¿Puedo elegir veterinario?</summary>
+          <p>
+            Sí. Al agendar, puedes indicar una preferencia y ver la
+            disponibilidad. Si no hay cupo, te sugeriremos alternativas.
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>¿Cómo agrego el perfil de mi mascota?</summary>
+          <p>
+            En “Mis mascotas” puedes crear su ficha con nombre, especie y edad.
+            Así podrás asociar cada cita y ver su historial.
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>¿Recibiré recordatorios?</summary>
+          <p>
+            Sí, activamos recordatorios de próximas citas y vacunas para que no se
+            te pase nada importante.
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>¿Puedo cambiar o cancelar una cita?</summary>
+          <p>
+            Desde tu panel puedes solicitar cambios. Si necesitas cancelar, hazlo
+            con anticipación para liberar el horario.
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>¿Atienden urgencias?</summary>
+          <p>
+            Sí, según disponibilidad. Si es una emergencia, te sugeriremos también
+            centros de urgencia cercanos fuera de horario.
+          </p>
+        </details>
+      </section>
+
+      <footer class="lobby-footer">
+        &copy; {new Date().getFullYear()} Veterinaria Pochita. Todos los derechos reservados.
+      </footer>
+    </div>
+  </body>
 </html>

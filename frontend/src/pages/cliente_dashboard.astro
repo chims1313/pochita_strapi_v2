@@ -1,0 +1,324 @@
+---
+import "../styles/pochita.css";
+
+const userCookie = Astro.cookies.get("user")?.value;
+let user = null;
+
+try {
+  user = userCookie ? JSON.parse(userCookie) : null;
+} catch {
+  user = null;
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const displayName = user.username || user.email || "cliente";
+const today = new Date().toLocaleDateString("es-CL", {
+  day: "2-digit",
+  month: "2-digit",
+});
+
+// URL de Strapi
+const STRAPI_URL =
+  import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
+
+// 1) Cargar mascotas del cliente
+let mascotas = [];
+if (user) {
+  try {
+    const res = await fetch(
+      `${STRAPI_URL}/api/mascotas?populate[dueno]=true`
+    );
+    if (res.ok) {
+      const json = await res.json();
+      mascotas = (json.data || [])
+        .filter((item) => {
+          const duenoRel = item.attributes?.dueno?.data;
+          return duenoRel && duenoRel.id === user.id;
+        })
+        .map((item) => ({
+          id: item.id,
+          ...(item.attributes || {}),
+        }));
+    } else {
+      console.error(
+        "ERROR cargando mascotas:",
+        res.status,
+        await res.text()
+      );
+    }
+  } catch (e) {
+    console.error("Error fetch mascotas:", e);
+  }
+}
+
+// 2) Cargar citas del cliente (solo para mostrar estado)
+let citas = [];
+if (user) {
+  try {
+    const res = await fetch(
+      `${STRAPI_URL}/api/citas?populate[mascota]=true&populate[veterinario]=true&populate[cliente]=true`
+    );
+    if (res.ok) {
+      const json = await res.json();
+      citas = (json.data || [])
+        .filter((item) => {
+          const cli = item.attributes?.cliente?.data;
+          return cli && cli.id === user.id;
+        })
+        .map((item) => ({
+          id: item.id,
+          ...(item.attributes || {}),
+        }));
+    } else {
+      console.error("ERROR cargando citas:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.error("Error fetch citas cliente:", e);
+  }
+}
+---
+
+<main class="cliente-dashboard">
+  <header class="dashboard-header dashboard-header--center">
+    <h1 class="dashboard-title">Panel del cliente</h1>
+    <p class="dashboard-subtitle">
+      Hola, {displayName}. Hoy es {today}.
+    </p>
+  </header>
+
+  <section class="dashboard-grid">
+    <!-- Columna izquierda: Agendar nueva cita -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Agendar nueva cita</h2>
+      </div>
+      <div class="card-body">
+        <p>
+          Solicita una hora para tu mascota seleccionando fecha, hora y motivo.
+        </p>
+
+        <form method="post" action="/api/appointments" class="form-cita">
+          <label>
+            Mascota
+            <select name="mascota" required>
+              <option value="">Seleccionar...</option>
+              {mascotas.map((m) => (
+                <option value={m.id}>{m.nombre}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Motivo
+            <input
+              type="text"
+              name="motivo"
+              placeholder="Vacunas, control, consulta..."
+            />
+          </label>
+
+          <div class="availability-row">
+            <label>
+              Fecha
+              <input type="date" name="fecha" required />
+            </label>
+            <label>
+              Hora
+              <input type="time" name="hora" required />
+            </label>
+          </div>
+
+          <label>
+            Preferencia de veterinario
+            <select name="veterinario_preferencia">
+              <option value="">Cualquiera</option>
+            </select>
+          </label>
+
+          <button type="submit" class="btn-primary">
+            Solicitar cita
+          </button>
+
+          <p class="nota-form">
+            M&aacute;s adelante este formulario puede enviar la solicitud a
+            Strapi para que recepci&oacute;n la confirme.
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Columna derecha: Ver disponibilidad -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Ver disponibilidad</h2>
+      </div>
+      <div class="card-body">
+        <p>
+          Revisa los bloques de horario disponibles para las pr&oacute;ximas
+          fechas.
+        </p>
+
+        <article class="bloque-disponibilidad">
+          <h3>Hoy</h3>
+          <p>15:30 &ndash; 17:00 &middot; 3 cupos</p>
+          <button class="badge-disponible">Disponible</button>
+        </article>
+
+        <article class="bloque-disponibilidad">
+          <h3>Ma&ntilde;ana</h3>
+          <p>10:00 &ndash; 12:00 &middot; 2 cupos</p>
+          <button class="badge-disponible">Disponible</button>
+        </article>
+
+        <article class="bloque-disponibilidad">
+          <h3>Pr&oacute;ximo lunes</h3>
+          <p>09:00 &ndash; 13:00 &middot; 4 cupos</p>
+          <button class="badge-disponible">Disponible</button>
+        </article>
+
+        <p class="nota-form">
+          Estos horarios son de ejemplo; luego se pueden obtener desde la API
+          seg&uacute;n la disponibilidad real de los veterinarios.
+        </p>
+      </div>
+    </section>
+
+    <!-- Mis mascotas -->
+    <section class="card card-wide">
+      <div class="card-header">
+        <h2>Mis mascotas</h2>
+      </div>
+      <div class="card-body">
+        {mascotas.length === 0 ? (
+          <div class="mis-mascotas-empty">
+            <p>No tienes mascotas registradas a&uacute;n.</p>
+            <button
+              type="button"
+              id="btn-agregar-mascota-empty"
+              class="btn-primary"
+            >
+              Agregar mascota
+            </button>
+          </div>
+        ) : (
+          <>
+            <div class="mascotas-grid">
+              {mascotas.map((m) => (
+                <article class="mascota-card">
+                  <h3>{m.nombre}</h3>
+                  <p>{m.especie} &middot; {m.raza}</p>
+                  <p>Edad: {m.edad} a&ntilde;os</p>
+                  <p>{m.notas}</p>
+                </article>
+              ))}
+            </div>
+
+            <div class="mis-mascotas-actions">
+              <button
+                type="button"
+                id="btn-agregar-mascota-plus"
+                class="btn-secundario"
+              >
+                + Agregar otra mascota
+              </button>
+            </div>
+          </>
+        )}
+
+        <div id="form-nueva-mascota" class="mascota-form-wrapper oculto">
+          <h3>Perfil de mascota</h3>
+          <form method="post" action="/api/pets" class="mascota-form">
+            <label>
+              Nombre
+              <input type="text" name="nombre" required />
+            </label>
+
+            <label>
+              Especie
+              <select name="especie">
+                <option value="perro">Perro</option>
+                <option value="gato">Gato</option>
+                <option value="otro">Otro</option>
+              </select>
+            </label>
+
+            <label>
+              Raza
+              <input type="text" name="raza" />
+            </label>
+
+            <label>
+              Edad
+              <input type="number" name="edad" min="0" />
+            </label>
+
+            <label>
+              Notas
+              <textarea name="notas"></textarea>
+            </label>
+
+            <button type="submit" class="btn-primary">
+              Guardar mascota
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mis citas -->
+    <section class="card card-wide">
+      <div class="card-header">
+        <h2>Mis citas</h2>
+      </div>
+      <div class="card-body">
+        {citas.length === 0 ? (
+          <p>No tienes citas registradas a&uacute;n.</p>
+        ) : (
+          <table class="tabla-citas table-appointments">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Mascota</th>
+                <th>Veterinario</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {citas.map((cita) => (
+                <tr>
+                  <td>{cita.fecha}</td>
+                  <td>{cita.hora?.slice(0, 5)}</td>
+                  <td>{cita.mascota?.data?.attributes?.nombre || "-"}</td>
+                  <td>{cita.veterinario?.data?.attributes?.username || "-"}</td>
+                  <td>{cita.estado || "Pendiente"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
+  </section>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const formWrapper = document.getElementById("form-nueva-mascota");
+      const emptyBtn = document.getElementById("btn-agregar-mascota-empty");
+      const plusBtn = document.getElementById("btn-agregar-mascota-plus");
+
+      function abrirFormulario() {
+        if (formWrapper) {
+          formWrapper.classList.remove("oculto");
+          formWrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+
+      if (emptyBtn) emptyBtn.addEventListener("click", abrirFormulario);
+      if (plusBtn) plusBtn.addEventListener("click", abrirFormulario);
+    });
+  </script>
+</main>

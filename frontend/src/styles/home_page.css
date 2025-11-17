@@ -1,0 +1,111 @@
+    /* Estilos para el LOBBY (home_page.html) 
+      Usamos los colores de tus mockups: fondo oscuro y acentos naranjas
+    */
+    body {
+        background-color: #1a1a1a;
+        background-image: url('/pochita-pattern.jpeg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        position: relative;
+        color: #f0f0f0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(26, 26, 26, 0.85);
+        z-index: -1;
+    }
+
+    .lobby-container {
+        max-width: 960px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    /* --- Cabecera con el Título y Botón --- */
+    .lobby-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        margin-bottom: 40px;
+    }
+
+    .lobby-header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+        color: #fff;
+    }
+
+    /* --- El Botón de Login (Estilo Naranja) --- */
+    .btn-login {
+        background-color: #f39c12; /* Naranja de tus mockups */
+        color: #111; /* Texto oscuro para el botón */
+        padding: 12px 24px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-login:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+    }
+
+    /* --- Secciones de Contenido --- */
+    .content-section {
+        background-color: #2a2a2a;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+
+    .content-section h2 {
+        color: #f39c12; /* Títulos de sección en naranja */
+        border-bottom: 2px solid #444;
+        padding-bottom: 10px;
+        margin-top: 0;
+    }
+
+    /* --- Grid para Servicios --- */
+    .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .service-card {
+        background-color: #333;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 5px solid #f39c12;
+    }
+
+    .service-card h3 {
+        margin-top: 0;
+        color: #fff;
+    }
+
+    .service-card p {
+        color: #ccc;
+    }
+
+    /* --- Footer --- */
+    .lobby-footer {
+        text-align: center;
+        margin-top: 50px;
+        color: #777;
+    }

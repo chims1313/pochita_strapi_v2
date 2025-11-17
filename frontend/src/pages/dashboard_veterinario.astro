@@ -1,0 +1,224 @@
+---
+import "../styles/pochita.css";
+
+const userCookie = Astro.cookies.get("user")?.value;
+let user = null;
+
+try {
+  user = userCookie ? JSON.parse(userCookie) : null;
+} catch {
+  user = null;
+}
+
+// DEBUG: mostrar estructura de `user` desde la cookie en la consola del servidor
+console.log("DEBUG: user cookie parsed:", user);
+
+const roleName = user?.role?.name || user?.role?.type || "authenticated";
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (roleName !== "Veterinario" && roleName !== "veterinario") {
+  return Astro.redirect("/cliente_dashboard");
+}
+
+const displayName = user.username || user.email || "veterinario";
+
+const today = new Date().toLocaleDateString("es-CL", {
+  weekday: "long",
+  day: "2-digit",
+  month: "2-digit",
+});
+// Fecha en formato input date: YYYY-MM-DD
+const todayInput = new Date().toISOString().slice(0, 10);
+
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Panel del veterinario | Veterinaria Pochita</title>
+  </head>
+  <body>
+    <!-- Barra superior reutilizando el estilo general -->
+    <header class="main-nav">
+      <a href="/" class="brand-link">
+        <span class="site-name">Veterinaria Pochita</span>
+      </a>
+      <div class="nav-buttons">
+        <span class="nav-user">Rol: {roleName}</span>
+        <a href="/logout" class="nav-btn">Cerrar sesión</a>
+      </div>
+    </header>
+
+    <main class="site-container">
+      <section class="dashboard-header dashboard-header--center">
+        <div>
+          <h1 class="dashboard-title">Panel del veterinario</h1>
+          <p class="dashboard-subtitle">
+            Bienvenido, {displayName}. Hoy es {today}.
+          </p>
+        </div>
+      </section>
+
+      <!-- Grid principal del panel -->
+      <section class="dashboard-grid">
+        <!-- Resumen del día -->
+        <article class="card">
+          <header class="card-header">
+            <h2>Resumen de hoy</h2>
+          </header>
+          <div class="card-body">
+            <ul class="summary-list">
+              <li><strong>3</strong> citas agendadas</li>
+              <li><strong>1</strong> control de rutina</li>
+              <li><strong>2</strong> consultas generales</li>
+            </ul>
+            <p class="hint-text">
+              Estos datos son de ejemplo; más adelante se pueden conectar a Strapi
+              para traer las citas reales del día.
+            </p>
+          </div>
+        </article>
+
+        <!-- Disponibilidad del veterinario -->
+        <article class="card">
+          <header class="card-header">
+            <h2>Definir disponibilidad</h2>
+          </header>
+          <div class="card-body">
+            <p class="card-text">
+              Publica tus horarios disponibles para que recepción pueda asignar citas.
+            </p>
+            <form class="availability-form" id="availability-form">
+              <label>
+                Fecha
+                <input type="date" name="date" required min={todayInput} />
+              </label>
+
+              <div class="availability-row">
+                <label>
+                  Desde
+                  <input type="time" name="from" required />
+                </label>
+                <label>
+                  Hasta
+                  <input type="time" name="to" required />
+                </label>
+              </div>
+
+              <label>
+                Duración de cada cita (minutos)
+                <input type="number" name="slot" min="10" step="5" value="30" />
+              </label>
+
+              <button type="submit">
+                Guardar disponibilidad
+              </button>
+
+              <p class="hint-text" id="availability-message"></p>
+            </form>
+            <p class="hint-text">
+              Más adelante este formulario puede enviar los datos a Strapi
+              para generar bloques de horario automáticamente.
+            </p>
+          </div>
+        </article>
+
+        <!-- Lista de citas del día -->
+        <article class="card card-wide">
+          <header class="card-header">
+            <h2>Citas de hoy</h2>
+          </header>
+          <div class="card-body">
+            <table class="table-appointments">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Mascota</th>
+                  <th>Dueño</th>
+                  <th>Motivo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>09:00</td>
+                  <td>Pochita</td>
+                  <td>Juan Pérez</td>
+                  <td>Control general</td>
+                  <td><span class="badge badge-pending">Pendiente</span></td>
+                </tr>
+                <tr>
+                  <td>10:30</td>
+                  <td>Firulais</td>
+                  <td>Ana Gómez</td>
+                  <td>Vacunas</td>
+                  <td><span class="badge badge-done">Atendida</span></td>
+                </tr>
+                <tr>
+                  <td>12:00</td>
+                  <td>Michi</td>
+                  <td>Carlos Díaz</td>
+                  <td>Consulta</td>
+                  <td><span class="badge badge-pending">Pendiente</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      const availabilityForm = document.getElementById("availability-form");
+      const messageEl = document.getElementById("availability-message");
+
+      availabilityForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (messageEl) {
+          messageEl.textContent = "";
+          messageEl.style.color = "";
+        }
+
+        const formData = new FormData(availabilityForm);
+        const payload = {
+          date: formData.get("date"),
+          from: formData.get("from"),
+          to: formData.get("to"),
+          slot: formData.get("slot"),
+        };
+
+        try {
+          const res = await fetch("/api/availability", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            if (messageEl) {
+              messageEl.textContent = data?.message || "No se pudo guardar";
+              messageEl.style.color = "#e74c3c";
+            }
+          } else {
+            if (messageEl) {
+              messageEl.textContent = "Disponibilidad guardada correctamente.";
+              messageEl.style.color = "#2ecc71";
+            }
+            // opcional: limpiar el formulario
+            (availabilityForm).reset();
+          }
+        } catch (err) {
+          console.error("Error enviando disponibilidad:", err);
+          if (messageEl) {
+            messageEl.textContent = "Error de red o servidor";
+            messageEl.style.color = "#e74c3c";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

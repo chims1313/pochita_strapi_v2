@@ -1,0 +1,577 @@
+/* ----- Base ----- */
+
+body {
+  background-color: #1a1a1a;
+  background-image: url('/pochita-pattern.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  position: relative;
+  color: #f0f0f0;
+  font-family: sans-serif;
+  display: block;            /* ya no centramos todo el body */
+  min-height: 100vh;
+  margin: 0;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(26, 26, 26, 0.85);
+  z-index: -1;
+}
+
+.site-container {
+  width: 100%;
+  padding: 2rem;
+  box-sizing: border-box;
+  margin-top: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: calc(100vh - 84px);
+}
+
+/* tarjetas genéricas */
+
+.login-container,
+.panel {
+  background-color: #2a2a2a;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 320px;
+  box-sizing: border-box;
+}
+
+form { display: flex; flex-direction: column; }
+label, input { color: #f0f0f0; }
+
+input {
+  background-color: #333;
+  border: 1px solid #555;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 5px;
+  margin-bottom: 1rem;
+}
+
+button {
+  background-color: #f39c12;
+  color: #111;
+  border: none;
+  padding: 0.75rem;
+  margin-top: 1.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.errorlist { color: #e74c3c; list-style-type: none; padding: 0; margin: 0 0 1rem 0; }
+.field-error { color: #e74c3c; font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 0.5rem; }
+
+/* ----- Nav ----- */
+
+.main-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background-color: rgba(34,34,34,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  gap: 1rem;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.brand-link { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit; }
+.logo { height: 44px; width: 44px; object-fit: contain; border-radius: 6px; }
+.site-name { font-weight: 700; color: #f0f0f0; font-size: 1.05rem; }
+
+.nav-buttons { display: flex; gap: 0.5rem; align-items: center; }
+.nav-btn {
+  background: transparent;
+  color: #f0f0f0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.nav-btn:hover { background: rgba(243,156,18,0.12); border-color: rgba(243,156,18,0.18); color: #f39c12; }
+
+.logout-btn {
+  background: #f39c12;
+  color: #111;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.logout-btn:hover {
+  filter: brightness(0.95);
+}
+
+@media (min-width: 700px) {
+  .login-container, .panel { width: 420px; }
+}
+
+/* textos auth */
+
+.auth-title {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.4rem;
+}
+
+.auth-subtitle {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: #ccc;
+}
+
+.form-error {
+  color: #e74c3c;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.hint-text {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #ccc;
+  text-align: center;
+}
+
+.hint-text a {
+  color: #f39c12;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.hint-text a:hover {
+  text-decoration: underline;
+}
+
+/* ----- Responsivo base ----- */
+
+@media (max-width: 600px) {
+  body {
+    display: block;
+  }
+
+  .site-container {
+    margin-top: 72px;
+    padding: 1.5rem 1rem;
+  }
+
+  .login-container {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+}
+
+/* ===========================
+   Dashboard veterinario
+   =========================== */
+
+.dashboard-header {
+  margin: 0 auto 1.5rem auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 1rem;
+}
+
+.dashboard-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.6rem;
+}
+
+.dashboard-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #ccc;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+/* Cards reutilizables */
+
+.card {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.card-wide {
+  grid-column: span 2;
+}
+
+.card-header h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+}
+
+.card-body {
+  font-size: 0.95rem;
+}
+
+.summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+}
+
+.summary-list li {
+  margin-bottom: 0.35rem;
+}
+
+.card-text {
+  margin-bottom: 1rem;
+}
+
+/* Formulario de disponibilidad */
+
+.availability-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.availability-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.availability-form input[type="date"],
+.availability-form input[type="time"],
+.availability-form input[type="number"] {
+  width: 100%;
+}
+
+/* Tabla de citas */
+
+.table-appointments {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table-appointments th,
+.table-appointments td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #444;
+}
+
+.table-appointments th {
+  text-align: left;
+  color: #f0f0f0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-pending {
+  background-color: #f39c12;
+  color: #111;
+}
+
+.badge-done {
+  background-color: #2ecc71;
+  color: #111;
+}
+
+/* responsive veterinario */
+
+@media (max-width: 800px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-wide {
+    grid-column: span 1;
+  }
+
+  .availability-row {
+    flex-direction: column;
+  }
+}
+
+.dashboard-header--center {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+/* botones pequeños */
+
+.table-btn {
+  background-color: #f39c12;
+  color: #111;
+  border: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.table-btn:hover {
+  filter: brightness(1.05);
+}
+
+/* ===========================
+   Login / Register (auth)
+   =========================== */
+
+.auth-panels {
+  position: relative;
+  display: grid;
+  place-items: center;
+  /* ajustado para coincidir con la altura de la nav (.site-container usa 84px) */
+  min-height: calc(100vh - 84px);
+}
+
+/* Efectos y posicionamiento SOLO dentro de auth-panels (no afectar .panel global) */
+.auth-panels .panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* estado inicial ligeramente elevado y escalado para animar hacia el centro */
+  transform: translate(-50%, -55%) scale(0.98);
+  width: 320px;
+  max-width: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease, transform 260ms cubic-bezier(.2,.8,.25,1);
+  background: rgba(10, 10, 10, 0.55);
+  border: 1px solid rgba(255, 165, 0, 0.07);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px) saturate(120%);
+  z-index: 10; /* estar por encima de elementos de fondo */
+}
+
+/* mismas clases, pero scoping dentro de .auth-panels para evitar romper otras páginas */
+.auth-panels .panel-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+  z-index: 20;
+}
+
+.auth-panels .panel-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -55%) scale(0.98);
+}
+
+/* Respetar preferencia de reducción de movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .auth-panels .panel,
+  .auth-panels .panel-visible,
+  .auth-panels .panel-hidden {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+.link-like {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+}
+
+@media (min-width: 900px) {
+  .auth-panels {
+    align-items: flex-start;
+    gap: 2.5rem;
+  }
+}
+
+/* ===========================
+   Dashboard cliente
+   =========================== */
+
+
+/* Dashboard cliente: mismo ancho que veterinario */
+.cliente-dashboard {
+  width: 100%;
+  max-width: 1120px;          /* un poco más ancho como el vet */
+  margin: 0 auto 3rem auto;
+  padding: 1.5rem 1.5rem 3rem 1.5rem;
+  box-sizing: border-box;
+}
+
+
+.cliente-dashboard h1 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.cliente-dashboard > p {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+/* reutilizamos la misma grid del veterinario */
+.cliente-dashboard .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+/* las tarjetas del cliente usan el mismo estilo base .card */
+.cliente-dashboard .card {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* disponibilidad del cliente */
+
+.availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.availability-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #333;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+
+.availability-date {
+  margin: 0;
+  font-weight: 600;
+}
+
+.availability-detail {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+
+/* tarjetas de mascotas (layout antiguo, por si lo reutilizas) */
+
+.pets-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.pet-card {
+  background-color: #333;
+  border-radius: 8px;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.pet-card h3 {
+  margin: 0 0 0.25rem 0;
+}
+
+.pet-card p {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.9rem;
+}
+
+.pet-card-new {
+  border: 1px dashed #555;
+}
+
+.pet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* responsive cliente */
+
+@media (max-width: 900px) {
+  .pets-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* FAQ */
+
+.faq {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.faq > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.faq > summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq[open] {
+  outline: 1px solid #444;
+}
+
+.faq p {
+  margin: 0.5rem 0 0 0;
+  color: #ddd;
+  font-size: 0.95rem;
+}
+
+/* Estilos para el bloque de mascotas (nuevo nombre) */
+
+.mascotas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.mascota-card {
+  background-color: #333;
+  border-radius: 8px;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.mascota-form-wrapper { margin-top: 1rem; }
+
+.oculto {
+  display: none;
+}

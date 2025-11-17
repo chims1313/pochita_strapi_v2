@@ -1,0 +1,9 @@
+---
+const jwt = Astro.cookies.get('jwt')?.value;
+
+if (jwt) {
+  Astro.cookies.delete('jwt', { path: '/' });
+}
+
+return Astro.redirect('/login');
+---

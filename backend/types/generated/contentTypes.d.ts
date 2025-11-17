@@ -430,6 +430,127 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCitaCita extends Struct.CollectionTypeSchema {
+  collectionName: 'citas';
+  info: {
+    displayName: 'Cita';
+    pluralName: 'citas';
+    singularName: 'cita';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cliente: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    estado: Schema.Attribute.Enumeration<
+      ['valores: pendiente, confirmada, atendida, cancelada']
+    > &
+      Schema.Attribute.DefaultTo<'valores: pendiente, confirmada, atendida, cancelada'>;
+    fecha: Schema.Attribute.Date;
+    hora: Schema.Attribute.Time;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'> &
+      Schema.Attribute.Private;
+    mascota: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    motivo: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    veterinario: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface ApiDisponibleDisponible extends Struct.CollectionTypeSchema {
+  collectionName: 'disponibles';
+  info: {
+    displayName: 'Disponible';
+    pluralName: 'disponibles';
+    singularName: 'disponible';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    disponible: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    fecha: Schema.Attribute.Date;
+    hora_desde: Schema.Attribute.DateTime;
+    hora_hasta: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::disponible.disponible'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    slot_minutos: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
+  collectionName: 'mascotas';
+  info: {
+    displayName: 'mascota';
+    pluralName: 'mascotas';
+    singularName: 'mascota';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dueno: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    edad: Schema.Attribute.Integer;
+    especie: Schema.Attribute.Enumeration<['valores: perro,gato,ave,otro']> &
+      Schema.Attribute.DefaultTo<'valores: perro,gato,ave,otro'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mascota.mascota'
+    > &
+      Schema.Attribute.Private;
+    nombre: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
+    notas: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    raza: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -885,7 +1006,6 @@ export interface PluginUsersPermissionsUser
   };
   options: {
     draftAndPublish: false;
-    timestamps: true;
   };
   attributes: {
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
@@ -894,6 +1014,10 @@ export interface PluginUsersPermissionsUser
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    dueno_de_la_mascota: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::cita.cita'
+    >;
     email: Schema.Attribute.Email &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -905,6 +1029,11 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    mascotas: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
+    mascotas_cliente: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mascota.mascota'
+    >;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -912,6 +1041,7 @@ export interface PluginUsersPermissionsUser
       }>;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    quien_atiende: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     role: Schema.Attribute.Relation<
       'manyToOne',
@@ -926,6 +1056,10 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 3;
       }>;
+    veterinario: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::disponible.disponible'
+    >;
   };
 }
 
@@ -940,6 +1074,9 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::cita.cita': ApiCitaCita;
+      'api::disponible.disponible': ApiDisponibleDisponible;
+      'api::mascota.mascota': ApiMascotaMascota;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

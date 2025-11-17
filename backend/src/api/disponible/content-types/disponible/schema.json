@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "disponibles",
+  "info": {
+    "singularName": "disponible",
+    "pluralName": "disponibles",
+    "displayName": "Disponible"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "fecha": {
+      "type": "date"
+    },
+    "hora_desde": {
+      "type": "datetime"
+    },
+    "hora_hasta": {
+      "type": "datetime"
+    },
+    "slot_minutos": {
+      "type": "integer"
+    },
+    "disponible": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "veterinario"
+    }
+  }
+}

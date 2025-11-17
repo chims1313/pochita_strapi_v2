@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "citas",
+  "info": {
+    "singularName": "cita",
+    "pluralName": "citas",
+    "displayName": "Cita"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "fecha": {
+      "type": "date"
+    },
+    "hora": {
+      "type": "time"
+    },
+    "estado": {
+      "type": "enumeration",
+      "default": "valores: pendiente, confirmada, atendida, cancelada",
+      "enum": [
+        "valores: pendiente, confirmada, atendida, cancelada"
+      ]
+    },
+    "motivo": {
+      "type": "string"
+    },
+    "veterinario": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "quien_atiende"
+    },
+    "cliente": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "dueno_de_la_mascota"
+    },
+    "mascota": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "mascotas"
+    }
+  }
+}
