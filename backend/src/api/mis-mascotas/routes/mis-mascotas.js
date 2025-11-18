@@ -7,7 +7,9 @@ module.exports = {
       path: '/mis-mascotas',
       handler: 'mis-mascotas.list',
       config: {
-        auth: false,
+        auth: {
+          scope: ['api::mis-mascotas.mis-mascotas.list']
+        },
         policies: [],
         middlewares: [],
       },

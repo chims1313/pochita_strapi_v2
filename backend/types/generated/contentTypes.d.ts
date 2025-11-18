@@ -449,23 +449,23 @@ export interface ApiCitaCita extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     estado: Schema.Attribute.Enumeration<
-      ['valores: pendiente, confirmada, atendida, cancelada']
-    > &
-      Schema.Attribute.DefaultTo<'valores: pendiente, confirmada, atendida, cancelada'>;
-    fecha: Schema.Attribute.Date;
-    hora: Schema.Attribute.Time;
+      ['pendiente', 'confirmada', 'completada', 'cancelada']
+    >;
+    fecha: Schema.Attribute.DateTime;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'> &
       Schema.Attribute.Private;
-    mascota: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
-    motivo: Schema.Attribute.String;
+    mascota: Schema.Attribute.Relation<'manyToOne', 'api::mascota.mascota'>;
+    motivo: Schema.Attribute.Text;
+    notas_veterinario: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     veterinario: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -487,13 +487,11 @@ export interface ApiDisponibleDisponible extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    disponible: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
+    cupos_disponibles: Schema.Attribute.Integer;
+    cupos_totales: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
     fecha: Schema.Attribute.Date;
-    hora_desde: Schema.Attribute.DateTime;
-    hora_hasta: Schema.Attribute.DateTime;
+    hora_fin: Schema.Attribute.Time;
+    hora_inicio: Schema.Attribute.Time;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -501,19 +499,60 @@ export interface ApiDisponibleDisponible extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
-    slot_minutos: Schema.Attribute.Integer;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    veterinario: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
 export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
   collectionName: 'mascotas';
   info: {
-    displayName: 'mascota';
+    displayName: 'Mascota';
     pluralName: 'mascotas';
     singularName: 'mascota';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    citas: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    edad: Schema.Attribute.Integer;
+    especie: Schema.Attribute.Enumeration<['perro', 'gato', 'ave', 'otro']>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mascota.mascota'
+    > &
+      Schema.Attribute.Private;
+    mascota: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    nombre: Schema.Attribute.Text;
+    notas: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    raza: Schema.Attribute.Text;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiNotificacionNotificacion
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'notificacions';
+  info: {
+    displayName: 'Notificacion';
+    pluralName: 'notificacions';
+    singularName: 'notificacion';
   };
   options: {
     draftAndPublish: true;
@@ -522,32 +561,23 @@ export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    dueno: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
-    edad: Schema.Attribute.Integer;
-    especie: Schema.Attribute.Enumeration<['valores: perro,gato,ave,otro']> &
-      Schema.Attribute.DefaultTo<'valores: perro,gato,ave,otro'>;
+    leida: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::mascota.mascota'
+      'api::notificacion.notificacion'
     > &
       Schema.Attribute.Private;
-    nombre: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 20;
-      }>;
-    notas: Schema.Attribute.Text;
+    mensaje: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
-    raza: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 20;
-      }>;
+    tipo: Schema.Attribute.Enumeration<['info', 'alerta', 'cancelacion']>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -1009,15 +1039,25 @@ export interface PluginUsersPermissionsUser
   };
   attributes: {
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    citas_como_cliente: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::cita.cita'
+    >;
+    citas_como_veterinario: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::cita.cita'
+    >;
+    cliente: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
     confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    dueno_de_la_mascota: Schema.Attribute.Relation<
+    disponibles: Schema.Attribute.Relation<
       'oneToMany',
-      'api::cita.cita'
+      'api::disponible.disponible'
     >;
+    dueno: Schema.Attribute.Relation<'oneToMany', 'api::mascota.mascota'>;
     email: Schema.Attribute.Email &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -1029,10 +1069,9 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
-    mascotas: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
-    mascotas_cliente: Schema.Attribute.Relation<
+    notificacions: Schema.Attribute.Relation<
       'oneToMany',
-      'api::mascota.mascota'
+      'api::notificacion.notificacion'
     >;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
@@ -1041,7 +1080,6 @@ export interface PluginUsersPermissionsUser
       }>;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
-    quien_atiende: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     role: Schema.Attribute.Relation<
       'manyToOne',
@@ -1056,10 +1094,6 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 3;
       }>;
-    veterinario: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::disponible.disponible'
-    >;
   };
 }
 
@@ -1077,6 +1111,7 @@ declare module '@strapi/strapi' {
       'api::cita.cita': ApiCitaCita;
       'api::disponible.disponible': ApiDisponibleDisponible;
       'api::mascota.mascota': ApiMascotaMascota;
+      'api::notificacion.notificacion': ApiNotificacionNotificacion;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

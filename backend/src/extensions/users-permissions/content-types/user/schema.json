@@ -66,35 +66,41 @@
       "inversedBy": "users",
       "configurable": false
     },
-    "veterinario": {
+    "dueno": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::disponible.disponible",
-      "mappedBy": "disponible"
+      "target": "api::mascota.mascota",
+      "mappedBy": "mascota"
     },
-    "quien_atiende": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::cita.cita",
-      "mappedBy": "veterinario"
-    },
-    "dueno_de_la_mascota": {
+    "citas_como_cliente": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::cita.cita",
       "mappedBy": "cliente"
     },
-    "mascotas": {
+    "citas_como_veterinario": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::cita.cita",
-      "mappedBy": "mascota"
+      "mappedBy": "veterinario"
     },
-    "mascotas_cliente": {
+    "disponibles": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::mascota.mascota",
-      "mappedBy": "dueno"
+      "target": "api::disponible.disponible",
+      "mappedBy": "veterinario"
+    },
+    "notificacions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::notificacion.notificacion",
+      "mappedBy": "users_permissions_user"
+    },
+    "cliente": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::cita.cita",
+      "mappedBy": "users_permissions_user"
     }
   }
 }

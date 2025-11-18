@@ -1,222 +1,543 @@
 ---
-import "../styles/pochita.css";
+const STRAPI_URL = "http://localhost:1337";
 
-const userCookie = Astro.cookies.get("user")?.value;
-let user = null;
+// Verificación de autenticación
+const jwt = Astro.cookies.get("jwt")?.value;
 
-try {
-  user = userCookie ? JSON.parse(userCookie) : null;
-} catch {
-  user = null;
-}
-
-// DEBUG: mostrar estructura de `user` desde la cookie en la consola del servidor
-console.log("DEBUG: user cookie parsed:", user);
-
-const roleName = user?.role?.name || user?.role?.type || "authenticated";
-
-if (!user) {
+if (!jwt) {
+  console.log("❌ No hay JWT - Redirigiendo a login");
   return Astro.redirect("/login");
 }
 
-if (roleName !== "Veterinario" && roleName !== "veterinario") {
-  return Astro.redirect("/cliente_dashboard");
+let userData;
+let citas = [];
+let disponibilidades = [];
+
+try {
+  // Obtener datos del usuario con rol
+  const userResponse = await fetch(`${STRAPI_URL}/api/users/me`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+
+  if (!userResponse.ok) {
+    console.log("❌ JWT inválido - Redirigiendo a login");
+    Astro.cookies.delete("jwt", { path: "/" });
+    return Astro.redirect("/login");
+  }
+
+  userData = await userResponse.json();
+  console.log("✅ Usuario autenticado:", userData.username, "| Rol:", userData.role?.name);
+
+  // Verificar que el usuario tiene rol de Veterinario
+  const roleName = userData.role?.name?.toLowerCase() || "";
+  
+  if (!roleName.includes("veterinario")) {
+    console.log("⚠️ Usuario no autorizado para este dashboard - Rol:", roleName);
+    
+    if (roleName.includes("recepcionista")) {
+      return Astro.redirect("/dashboard_recepcionista");
+    } else if (roleName.includes("cliente")) {
+      return Astro.redirect("/cliente_dashboard");
+    } else {
+      return Astro.redirect("/login");
+    }
+  }
+
+  console.log("✅ Acceso autorizado a dashboard veterinario");
+
+  // Obtener citas del veterinario
+  const citasResponse = await fetch(
+    `${STRAPI_URL}/api/citas?filters[veterinario][id][$eq]=${userData.id}&populate=*&sort=fecha:desc`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (citasResponse.ok) {
+    const citasData = await citasResponse.json();
+    citas = citasData.data || [];
+    console.log(`📦 Citas cargadas: ${citas.length}`);
+  }
+
+  // Obtener disponibilidades del veterinario
+  const disponiblesResponse = await fetch(
+    `${STRAPI_URL}/api/disponibles?filters[veterinario][id][$eq]=${userData.id}&populate=*&sort=fecha:desc`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (disponiblesResponse.ok) {
+    const disponiblesData = await disponiblesResponse.json();
+    disponibilidades = disponiblesData.data || [];
+    console.log(`📦 Disponibilidades cargadas: ${disponibilidades.length}`);
+  }
+
+} catch (error) {
+  console.error("💥 Error verificando usuario:", error);
+  return Astro.redirect("/login");
 }
-
-const displayName = user.username || user.email || "veterinario";
-
-const today = new Date().toLocaleDateString("es-CL", {
-  weekday: "long",
-  day: "2-digit",
-  month: "2-digit",
-});
-// Fecha en formato input date: YYYY-MM-DD
-const todayInput = new Date().toISOString().slice(0, 10);
-
 ---
 
+<!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <title>Panel del veterinario | Veterinaria Pochita</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Veterinario - Veterinaria Pochita</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #1a1a1a;
+        background-image: url('/pochita-pattern.jpeg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+        color: #ffffff;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(26, 26, 26, 0.9);
+        z-index: -1;
+      }
+
+      header {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 1.5rem 2rem;
+        border-bottom: 2px solid rgba(243, 156, 18, 0.3);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(10px);
+      }
+
+      .header-content {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header-content h1 {
+        margin: 0;
+        color: #f39c12;
+        font-size: 1.8rem;
+        text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+      }
+
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .logo-img-small {
+        height: 1.8rem;
+        width: auto;
+        display: block;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .username {
+        color: #d0d0d0;
+        font-weight: 500;
+        font-size: 1rem;
+      }
+
+      .btn-logout {
+        background: rgba(231, 76, 60, 0.9);
+        color: white;
+        border: none;
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+      }
+
+      .btn-logout:hover {
+        background: rgba(231, 76, 60, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+      }
+
+      .welcome {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+      }
+
+      .welcome h2 {
+        color: #f39c12;
+        margin-bottom: 0.5rem;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      .section-header h2 {
+        color: #f39c12;
+        font-size: 1.5rem;
+      }
+
+      .btn-add {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+      }
+
+      .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(243, 156, 18, 0.4);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-card {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border-left: 5px solid #f39c12;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+      }
+
+      .stat-card h3 {
+        color: #f39c12;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stat-card .number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #ffffff;
+      }
+
+      .grid-2col {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 2rem;
+      }
+
+      .card {
+        background: rgba(45, 45, 45, 0.95);
+        border-radius: 15px;
+        padding: 1.5rem;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+      }
+
+      .card h3 {
+        color: #f39c12;
+        margin-bottom: 1rem;
+        font-size: 1.2rem;
+      }
+
+      .appointment-item {
+        background: rgba(30, 30, 30, 0.5);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #f39c12;
+      }
+
+      .appointment-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .appointment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .appointment-time {
+        color: #f39c12;
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+
+      .appointment-info {
+        color: #d0d0d0;
+        margin-bottom: 0.3rem;
+        font-size: 0.95rem;
+      }
+
+      .appointment-info strong {
+        color: #ffffff;
+      }
+
+      .disponibilidad-item {
+        background: rgba(30, 30, 30, 0.5);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #2ecc71;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .disponibilidad-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .disponibilidad-info {
+        flex: 1;
+      }
+
+      .disponibilidad-fecha {
+        color: #2ecc71;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.3rem;
+      }
+
+      .disponibilidad-horario {
+        color: #d0d0d0;
+        font-size: 0.95rem;
+      }
+
+      .disponibilidad-cupos {
+        color: #b0b0b0;
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .badge-pendiente {
+        background: rgba(241, 196, 15, 0.2);
+        color: #f1c40f;
+        border: 1px solid rgba(241, 196, 15, 0.5);
+      }
+
+      .badge-confirmada {
+        background: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+        border: 1px solid rgba(46, 204, 113, 0.5);
+      }
+
+      .badge-cancelada {
+        background: rgba(231, 76, 60, 0.2);
+        color: #e74c3c;
+        border: 1px solid rgba(231, 76, 60, 0.5);
+      }
+
+      .badge-completada {
+        background: rgba(52, 152, 219, 0.2);
+        color: #3498db;
+        border: 1px solid rgba(52, 152, 219, 0.5);
+      }
+
+      .btn-delete {
+        background: rgba(231, 76, 60, 0.9);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-delete:hover {
+        background: rgba(231, 76, 60, 1);
+        transform: translateY(-2px);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #b0b0b0;
+        font-style: italic;
+      }
+    </style>
   </head>
   <body>
-    <!-- Barra superior reutilizando el estilo general -->
-    <header class="main-nav">
-      <a href="/" class="brand-link">
-        <span class="site-name">Veterinaria Pochita</span>
-      </a>
-      <div class="nav-buttons">
-        <span class="nav-user">Rol: {roleName}</span>
-        <a href="/logout" class="nav-btn">Cerrar sesión</a>
+    <header>
+      <div class="header-content">
+        <a href="/" class="brand-link">
+          <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
+          <h1>Dashboard Veterinario</h1>
+        </a>
+        <div class="header-actions">
+          <span class="username">👤 {userData.username}</span>
+          <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
+        </div>
       </div>
     </header>
 
-    <main class="site-container">
-      <section class="dashboard-header dashboard-header--center">
-        <div>
-          <h1 class="dashboard-title">Panel del veterinario</h1>
-          <p class="dashboard-subtitle">
-            Bienvenido, {displayName}. Hoy es {today}.
-          </p>
+    <div class="container">
+      <div class="welcome">
+        <h2>Bienvenido, Dr. {userData.username} 👋</h2>
+        <p>Gestiona tus citas y disponibilidad</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Citas Totales</h3>
+          <div class="number">{citas.length}</div>
         </div>
-      </section>
-
-      <!-- Grid principal del panel -->
-      <section class="dashboard-grid">
-        <!-- Resumen del día -->
-        <article class="card">
-          <header class="card-header">
-            <h2>Resumen de hoy</h2>
-          </header>
-          <div class="card-body">
-            <ul class="summary-list">
-              <li><strong>3</strong> citas agendadas</li>
-              <li><strong>1</strong> control de rutina</li>
-              <li><strong>2</strong> consultas generales</li>
-            </ul>
-            <p class="hint-text">
-              Estos datos son de ejemplo; más adelante se pueden conectar a Strapi
-              para traer las citas reales del día.
-            </p>
+        <div class="stat-card">
+          <h3>Citas Pendientes</h3>
+          <div class="number">
+            {citas.filter((c) => c.estado === "pendiente").length}
           </div>
-        </article>
+        </div>
+        <div class="stat-card">
+          <h3>Citas Confirmadas</h3>
+          <div class="number">
+            {citas.filter((c) => c.estado === "confirmada").length}
+          </div>
+        </div>
+        <div class="stat-card">
+          <h3>Disponibilidades</h3>
+          <div class="number">{disponibilidades.length}</div>
+        </div>
+      </div>
 
-        <!-- Disponibilidad del veterinario -->
-        <article class="card">
-          <header class="card-header">
-            <h2>Definir disponibilidad</h2>
-          </header>
-          <div class="card-body">
-            <p class="card-text">
-              Publica tus horarios disponibles para que recepción pueda asignar citas.
-            </p>
-            <form class="availability-form" id="availability-form">
-              <label>
-                Fecha
-                <input type="date" name="date" required min={todayInput} />
-              </label>
+      <div class="grid-2col">
+        <!-- Mis Citas -->
+        <div class="card">
+          <div class="section-header" style="margin-top: 0;">
+            <h3>📅 Mis Citas</h3>
+          </div>
 
-              <div class="availability-row">
-                <label>
-                  Desde
-                  <input type="time" name="from" required />
-                </label>
-                <label>
-                  Hasta
-                  <input type="time" name="to" required />
-                </label>
+          {citas.length === 0 ? (
+            <div class="empty-state">
+              <p>No tienes citas programadas</p>
+            </div>
+          ) : (
+            citas.map((cita) => (
+              <div class="appointment-item">
+                <div class="appointment-header">
+                  <span class="appointment-time">
+                    {cita.fecha} - {cita.hora}
+                  </span>
+                  <span class={`badge badge-${cita.estado || "pendiente"}`}>
+                    {cita.estado || "pendiente"}
+                  </span>
+                </div>
+                <div class="appointment-info">
+                  <strong>Cliente:</strong> {cita.cliente?.username || "N/A"}
+                </div>
+                <div class="appointment-info">
+                  <strong>Mascota:</strong> {cita.mascota?.nombre || "N/A"}
+                </div>
+                {cita.motivo && (
+                  <div class="appointment-info">
+                    <strong>Motivo:</strong> {cita.motivo}
+                  </div>
+                )}
               </div>
+            ))
+          )}
+        </div>
 
-              <label>
-                Duración de cada cita (minutos)
-                <input type="number" name="slot" min="10" step="5" value="30" />
-              </label>
-
-              <button type="submit">
-                Guardar disponibilidad
-              </button>
-
-              <p class="hint-text" id="availability-message"></p>
-            </form>
-            <p class="hint-text">
-              Más adelante este formulario puede enviar los datos a Strapi
-              para generar bloques de horario automáticamente.
-            </p>
+        <!-- Mis Disponibilidades -->
+        <div class="card">
+          <div class="section-header" style="margin-top: 0;">
+            <h3>🕒 Mis Disponibilidades</h3>
           </div>
-        </article>
 
-        <!-- Lista de citas del día -->
-        <article class="card card-wide">
-          <header class="card-header">
-            <h2>Citas de hoy</h2>
-          </header>
-          <div class="card-body">
-            <table class="table-appointments">
-              <thead>
-                <tr>
-                  <th>Hora</th>
-                  <th>Mascota</th>
-                  <th>Dueño</th>
-                  <th>Motivo</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>09:00</td>
-                  <td>Pochita</td>
-                  <td>Juan Pérez</td>
-                  <td>Control general</td>
-                  <td><span class="badge badge-pending">Pendiente</span></td>
-                </tr>
-                <tr>
-                  <td>10:30</td>
-                  <td>Firulais</td>
-                  <td>Ana Gómez</td>
-                  <td>Vacunas</td>
-                  <td><span class="badge badge-done">Atendida</span></td>
-                </tr>
-                <tr>
-                  <td>12:00</td>
-                  <td>Michi</td>
-                  <td>Carlos Díaz</td>
-                  <td>Consulta</td>
-                  <td><span class="badge badge-pending">Pendiente</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </section>
-    </main>
+          {disponibilidades.length === 0 ? (
+            <div class="empty-state">
+              <p>No tienes disponibilidades registradas</p>
+            </div>
+          ) : (
+            disponibilidades.map((disp) => (
+              <div class="disponibilidad-item">
+                <div class="disponibilidad-info">
+                  <div class="disponibilidad-fecha">
+                    📅 {disp.fecha}
+                  </div>
+                  <div class="disponibilidad-horario">
+                    🕐 {disp.hora_inicio} - {disp.hora_fin}
+                  </div>
+                  {disp.cupos_disponibles !== undefined && (
+                    <div class="disponibilidad-cupos">
+                      Cupos: {disp.cupos_disponibles}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+
     <script>
-      const availabilityForm = document.getElementById("availability-form");
-      const messageEl = document.getElementById("availability-message");
-
-      availabilityForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        if (messageEl) {
-          messageEl.textContent = "";
-          messageEl.style.color = "";
-        }
-
-        const formData = new FormData(availabilityForm);
-        const payload = {
-          date: formData.get("date"),
-          from: formData.get("from"),
-          to: formData.get("to"),
-          slot: formData.get("slot"),
-        };
-
+      document.getElementById("btnCerrarSesion")?.addEventListener("click", async () => {
         try {
-          const res = await fetch("/api/availability", {
+          const response = await fetch("/api/logout", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
           });
 
-          const data = await res.json();
-
-          if (!res.ok) {
-            if (messageEl) {
-              messageEl.textContent = data?.message || "No se pudo guardar";
-              messageEl.style.color = "#e74c3c";
-            }
-          } else {
-            if (messageEl) {
-              messageEl.textContent = "Disponibilidad guardada correctamente.";
-              messageEl.style.color = "#2ecc71";
-            }
-            // opcional: limpiar el formulario
-            (availabilityForm).reset();
+          if (response.ok) {
+            window.location.href = "/login";
           }
-        } catch (err) {
-          console.error("Error enviando disponibilidad:", err);
-          if (messageEl) {
-            messageEl.textContent = "Error de red o servidor";
-            messageEl.style.color = "#e74c3c";
-          }
+        } catch (error) {
+          console.error("Error al cerrar sesión:", error);
+          alert("Error al cerrar sesión");
         }
       });
     </script>

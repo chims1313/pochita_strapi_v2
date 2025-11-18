@@ -4,8 +4,7 @@
   "info": {
     "singularName": "mascota",
     "pluralName": "mascotas",
-    "displayName": "mascota",
-    "description": "Mascotas registradas por clientes"
+    "displayName": "Mascota"
   },
   "options": {
     "draftAndPublish": true
@@ -13,33 +12,37 @@
   "pluginOptions": {},
   "attributes": {
     "nombre": {
-      "type": "string",
-      "required": true,
-      "maxLength": 50
+      "type": "text"
     },
     "especie": {
       "type": "enumeration",
-      "enum": ["perro", "gato", "ave", "otro"],
-      "default": "perro",
-      "required": true
+      "enum": [
+        "perro",
+        "gato",
+        "ave",
+        "otro"
+      ]
     },
     "raza": {
-      "type": "string",
-      "maxLength": 50
+      "type": "text"
     },
     "edad": {
-      "type": "integer",
-      "min": 0,
-      "max": 50
+      "type": "integer"
     },
     "notas": {
       "type": "text"
     },
-    "dueno": {
+    "mascota": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "mascotas_cliente"
+      "inversedBy": "dueno"
+    },
+    "citas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::cita.cita",
+      "mappedBy": "mascota"
     }
   }
 }

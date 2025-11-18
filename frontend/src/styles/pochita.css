@@ -1,18 +1,28 @@
-/* ----- Base ----- */
+/* ========================================
+   POCHITA.CSS - Veterinaria Pochita
+   Estilo oscuro con acentos naranja
+   ======================================== */
+
+/* === RESET Y BASE === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 body {
   background-color: #1a1a1a;
-  background-image: url('/pochita-pattern.jpeg');
+  background-image: url('/pochita-pattern.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
   background-repeat: no-repeat;
   position: relative;
   color: #f0f0f0;
-  font-family: sans-serif;
-  display: block;            /* ya no centramos todo el body */
-  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
 
 body::before {
@@ -22,556 +32,656 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(26, 26, 26, 0.85);
+  background-color: rgba(0, 0, 0, 0.35);
   z-index: -1;
 }
 
-.site-container {
-  width: 100%;
-  padding: 2rem;
-  box-sizing: border-box;
-  margin-top: 84px;
-  display: flex;
-  flex-direction: column;
+/* Branding: logo y link */
+.brand-link {
+  display: inline-flex;
   align-items: center;
-  min-height: calc(100vh - 84px);
+  gap: 0.5rem;
+  text-decoration: none;
 }
 
-/* tarjetas genéricas */
+.logo-img {
+  height: 48px;
+  width: auto;
+  display: block;
+}
 
+/* === NAVEGACIÓN === */
+.main-nav {
+  background-color: #2a2a2a;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.brand-link {
+  text-decoration: none;
+}
+
+.site-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f39c12;
+  letter-spacing: -0.02em;
+}
+
+.main-nav nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.nav-usuario {
+  color: #ccc;
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+}
+
+.nav-btn,
+.btn-login {
+  background-color: #f39c12;
+  color: #111;
+  padding: 0.6rem 1.4rem;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: all 0.3s;
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.nav-btn:hover,
+.btn-login:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+}
+
+/* === CONTENEDORES === */
+.lobby-container,
+.center-container {
+  max-width: 960px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+/* === TARJETAS PRINCIPALES === */
+.dashboard-card,
 .login-container,
-.panel {
+.panel,
+.content-section {
   background-color: #2a2a2a;
   padding: 2rem;
   border-radius: 8px;
-  width: 320px;
-  box-sizing: border-box;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-form { display: flex; flex-direction: column; }
-label, input { color: #f0f0f0; }
-
-input {
-  background-color: #333;
-  border: 1px solid #555;
-  padding: 0.5rem;
-  border-radius: 4px;
-  margin-top: 5px;
-  margin-bottom: 1rem;
-}
-
-button {
-  background-color: #f39c12;
-  color: #111;
-  border: none;
-  padding: 0.75rem;
-  margin-top: 1.5rem;
-  border-radius: 4px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.errorlist { color: #e74c3c; list-style-type: none; padding: 0; margin: 0 0 1rem 0; }
-.field-error { color: #e74c3c; font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 0.5rem; }
-
-/* ----- Nav ----- */
-
-.main-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  background-color: rgba(34,34,34,0.95);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
-  gap: 1rem;
-  z-index: 1000;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-}
-
-.brand-link { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit; }
-.logo { height: 44px; width: 44px; object-fit: contain; border-radius: 6px; }
-.site-name { font-weight: 700; color: #f0f0f0; font-size: 1.05rem; }
-
-.nav-buttons { display: flex; gap: 0.5rem; align-items: center; }
-.nav-btn {
-  background: transparent;
-  color: #f0f0f0;
-  padding: 0.45rem 0.7rem;
-  border-radius: 6px;
-  text-decoration: none;
-  border: 1px solid transparent;
-}
-.nav-btn:hover { background: rgba(243,156,18,0.12); border-color: rgba(243,156,18,0.18); color: #f39c12; }
-
-.logout-btn {
-  background: #f39c12;
-  color: #111;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  font-weight: 700;
-  text-decoration: none;
-}
-.logout-btn:hover {
-  filter: brightness(0.95);
-}
-
-@media (min-width: 700px) {
-  .login-container, .panel { width: 420px; }
-}
-
-/* textos auth */
-
+.dashboard-card h1,
 .auth-title {
-  margin-top: 0;
+  color: #f39c12;
+  font-size: 1.8rem;
   margin-bottom: 0.5rem;
-  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.dashboard-card h2,
+.content-section h2 {
+  color: #f39c12;
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  border-bottom: 2px solid #444;
+  padding-bottom: 0.5rem;
 }
 
 .auth-subtitle {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  font-size: 0.95rem;
   color: #ccc;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
 }
 
-.form-error {
-  color: #e74c3c;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+/* === PANELS DE AUTH === */
+.auth-panels {
+  max-width: 500px;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+.panel-hidden {
+  display: none;
+}
+
+.panel-visible {
+  display: block;
+  animation: fadeIn 0.4s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .hint-text {
-  margin-top: 1rem;
+  text-align: center;
+  margin-top: 1.5rem;
+  color: #999;
   font-size: 0.9rem;
-  color: #ccc;
-  text-align: center;
-}
-
-.hint-text a {
-  color: #f39c12;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.hint-text a:hover {
-  text-decoration: underline;
-}
-
-/* ----- Responsivo base ----- */
-
-@media (max-width: 600px) {
-  body {
-    display: block;
-  }
-
-  .site-container {
-    margin-top: 72px;
-    padding: 1.5rem 1rem;
-  }
-
-  .login-container {
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 1.5rem;
-  }
-}
-
-/* ===========================
-   Dashboard veterinario
-   =========================== */
-
-.dashboard-header {
-  margin: 0 auto 1.5rem auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding-top: 1rem;
-}
-
-.dashboard-title {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.6rem;
-}
-
-.dashboard-subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #ccc;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-}
-
-/* Cards reutilizables */
-
-.card {
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-sizing: border-box;
-}
-
-.card-wide {
-  grid-column: span 2;
-}
-
-.card-header h2 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.2rem;
-}
-
-.card-body {
-  font-size: 0.95rem;
-}
-
-.summary-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem 0;
-}
-
-.summary-list li {
-  margin-bottom: 0.35rem;
-}
-
-.card-text {
-  margin-bottom: 1rem;
-}
-
-/* Formulario de disponibilidad */
-
-.availability-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.availability-row {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.availability-form input[type="date"],
-.availability-form input[type="time"],
-.availability-form input[type="number"] {
-  width: 100%;
-}
-
-/* Tabla de citas */
-
-.table-appointments {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.table-appointments th,
-.table-appointments td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #444;
-}
-
-.table-appointments th {
-  text-align: left;
-  color: #f0f0f0;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.badge-pending {
-  background-color: #f39c12;
-  color: #111;
-}
-
-.badge-done {
-  background-color: #2ecc71;
-  color: #111;
-}
-
-/* responsive veterinario */
-
-@media (max-width: 800px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .card-wide {
-    grid-column: span 1;
-  }
-
-  .availability-row {
-    flex-direction: column;
-  }
-}
-
-.dashboard-header--center {
-  display: flex;
-  justify-content: center;
-  text-align: center;
-}
-
-/* botones pequeños */
-
-.table-btn {
-  background-color: #f39c12;
-  color: #111;
-  border: none;
-  padding: 0.35rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.table-btn:hover {
-  filter: brightness(1.05);
-}
-
-/* ===========================
-   Login / Register (auth)
-   =========================== */
-
-.auth-panels {
-  position: relative;
-  display: grid;
-  place-items: center;
-  /* ajustado para coincidir con la altura de la nav (.site-container usa 84px) */
-  min-height: calc(100vh - 84px);
-}
-
-/* Efectos y posicionamiento SOLO dentro de auth-panels (no afectar .panel global) */
-.auth-panels .panel {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  /* estado inicial ligeramente elevado y escalado para animar hacia el centro */
-  transform: translate(-50%, -55%) scale(0.98);
-  width: 320px;
-  max-width: 100%;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 260ms ease, transform 260ms cubic-bezier(.2,.8,.25,1);
-  background: rgba(10, 10, 10, 0.55);
-  border: 1px solid rgba(255, 165, 0, 0.07);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px) saturate(120%);
-  z-index: 10; /* estar por encima de elementos de fondo */
-}
-
-/* mismas clases, pero scoping dentro de .auth-panels para evitar romper otras páginas */
-.auth-panels .panel-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
-  z-index: 20;
-}
-
-.auth-panels .panel-hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -55%) scale(0.98);
-}
-
-/* Respetar preferencia de reducción de movimiento */
-@media (prefers-reduced-motion: reduce) {
-  .auth-panels .panel,
-  .auth-panels .panel-visible,
-  .auth-panels .panel-hidden {
-    transition: none !important;
-    transform: none !important;
-  }
 }
 
 .link-like {
-  appearance: none;
-  -webkit-appearance: none;
   background: none;
   border: none;
-  color: var(--accent);
+  color: #f39c12;
   cursor: pointer;
-  padding: 0;
-  font-weight: 600;
+  text-decoration: underline;
+  font: inherit;
 }
 
-@media (min-width: 900px) {
-  .auth-panels {
-    align-items: flex-start;
-    gap: 2.5rem;
-  }
+.link-like:hover {
+  color: #e67e22;
 }
 
-/* ===========================
-   Dashboard cliente
-   =========================== */
-
-
-/* Dashboard cliente: mismo ancho que veterinario */
-.cliente-dashboard {
-  width: 100%;
-  max-width: 1120px;          /* un poco más ancho como el vet */
-  margin: 0 auto 3rem auto;
-  padding: 1.5rem 1.5rem 3rem 1.5rem;
-  box-sizing: border-box;
-}
-
-
-.cliente-dashboard h1 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-
-.cliente-dashboard > p {
-  margin-top: 0;
-  margin-bottom: 0.75rem;
-}
-
-/* reutilizamos la misma grid del veterinario */
-.cliente-dashboard .dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-}
-
-/* las tarjetas del cliente usan el mismo estilo base .card */
-.cliente-dashboard .card {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* disponibilidad del cliente */
-
-.availability-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.availability-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #333;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-}
-
-.availability-date {
-  margin: 0;
-  font-weight: 600;
-}
-
-.availability-detail {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #ccc;
-}
-
-/* tarjetas de mascotas (layout antiguo, por si lo reutilizas) */
-
+/* === GRID DE MASCOTAS === */
 .pets-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .pet-card {
   background-color: #333;
+  padding: 1.3rem;
   border-radius: 8px;
-  padding: 1rem;
-  box-sizing: border-box;
+  border-left: 5px solid #f39c12;
+  transition: all 0.3s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-.pet-card h3 {
-  margin: 0 0 0.25rem 0;
+.pet-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(243, 156, 18, 0.3);
 }
 
-.pet-card p {
-  margin: 0 0 0.35rem 0;
+.pet-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.pet-meta {
+  font-size: 0.95rem;
+  color: #ccc;
+  margin-bottom: 0.3rem;
+}
+
+.pet-meta b {
+  color: #f39c12;
+}
+
+.pet-notas {
   font-size: 0.9rem;
+  color: #999;
+  border-left: 3px solid #f39c12;
+  padding-left: 0.8rem;
+  margin-top: 0.8rem;
+  font-style: italic;
 }
 
-.pet-card-new {
-  border: 1px dashed #555;
+/* === SERVICIOS (HOME) === */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
 }
 
-.pet-form {
+.service-card {
+  background-color: #333;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 5px solid #f39c12;
+}
+
+.service-card h3 {
+  margin-top: 0;
+  color: #fff;
+}
+
+.service-card p {
+  color: #ccc;
+}
+
+/* === BOTONES === */
+.btn,
+button[type="submit"] {
+  background-color: #f39c12;
+  color: #111;
+  border: none;
+  border-radius: 5px;
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-block;
+}
+
+.btn:hover,
+button[type="submit"]:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+}
+
+.btn-primary {
+  background-color: #f39c12;
+  color: #111;
+}
+
+.btn-secondary {
+  background-color: #555;
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background-color: #666;
+}
+
+.btn-danger {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background-color: #c0392b;
+}
+
+/* === FORMULARIOS === */
+form {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* responsive cliente */
-
-@media (max-width: 900px) {
-  .pets-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* FAQ */
-
-.faq {
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  margin: 0.5rem 0;
-}
-
-.faq > summary {
-  cursor: pointer;
-  font-weight: 600;
-  list-style: none;
-}
-
-.faq > summary::-webkit-details-marker {
-  display: none;
-}
-
-.faq[open] {
-  outline: 1px solid #444;
-}
-
-.faq p {
-  margin: 0.5rem 0 0 0;
-  color: #ddd;
-  font-size: 0.95rem;
-}
-
-/* Estilos para el bloque de mascotas (nuevo nombre) */
-
-.mascotas-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1rem;
 }
 
-.mascota-card {
-  background-color: #333;
-  border-radius: 8px;
-  padding: 1rem;
-  box-sizing: border-box;
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-weight: 500;
+  color: #f0f0f0;
+  font-size: 0.95rem;
 }
 
-.mascota-form-wrapper { margin-top: 1rem; }
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #444;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #1a1a1a;
+  color: #f0f0f0;
+  transition: all 0.3s;
+}
 
-.oculto {
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #f39c12;
+  box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.2);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+::placeholder {
+  color: #777;
+}
+
+/* === MODALES === */
+.modal {
   display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
 }
+
+.modal.modal-open {
+  display: flex;
+  animation: fadeIn 0.3s;
+}
+
+.modal-content {
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+  border: 1px solid #444;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #444;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #f39c12;
+  font-size: 1.4rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+  transition: color 0.3s;
+}
+
+.modal-close:hover {
+  color: #f39c12;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  justify-content: flex-end;
+}
+
+/* === MENSAJES === */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #777;
+  font-size: 1rem;
+  font-style: italic;
+}
+
+.form-error,
+.error-message {
+  background: #3d1f1f;
+  border: 1.5px solid #e74c3c;
+  border-radius: 5px;
+  padding: 1rem;
+  color: #ff6b6b;
+  margin: 1rem 0;
+}
+
+/* === TABLAS === */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th {
+  background: #444;
+  color: #f39c12;
+  padding: 0.8rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+td {
+  padding: 0.8rem;
+  border-top: 1px solid #444;
+  color: #ddd;
+}
+
+tr:hover {
+  background: #3a3a3a;
+}
+
+/* === HEADER LOBBY === */
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  margin-bottom: 40px;
+}
+
+.lobby-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #fff;
+}
+
+/* === FOOTER === */
+.lobby-footer {
+  text-align: center;
+  margin-top: 50px;
+  color: #777;
+  padding: 1rem;
+}
+
+/* === UTILIDADES === */
+.mb-1 { margin-bottom: 1rem; }
+.mb-2 { margin-bottom: 2rem; }
+.mt-1 { margin-top: 1rem; }
+.mt-2 { margin-top: 2rem; }
+.text-center { text-align: center; }
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .main-nav {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .main-nav nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .dashboard-card,
+  .login-container,
+  .panel,
+  .content-section {
+    padding: 1.5rem;
+  }
+
+  .pets-grid,
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* === ACCIONES EN TARJETA DE MASCOTA === */
+.pet-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #444;
+}
+
+.pet-actions .btn {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.8rem;
+}
+
+/* Notificaciones */
+.notifications-section {
+  background: #2a2a2a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid #f39c12;
+  margin-bottom: 2rem;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notification {
+  background: #333;
+  padding: 1rem;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.notification-cancelacion {
+  border-left: 3px solid #f39c12;
+}
+
+.notification-alerta {
+  border-left: 3px solid #e74c3c;
+}
+
+.btn-mark-read {
+  background: #555;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-mark-read:hover {
+  background: #666;
+}
+
+/* Secciones */
+.section {
+  margin-bottom: 2rem;
+}
+
+/* Veterinarios */
+.vet-section {
+  margin-bottom: 2rem;
+  background: #2a2a2a;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.vet-section h4 {
+  color: #f39c12;
+  margin-bottom: 1rem;
+}
+
+/* Slots de disponibilidad */
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.8rem;
+}
+
+.slot {
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.slot.disponible {
+  background: #27ae60;
+  color: white;
+}
+
+.slot.ocupado {
+  background: #e74c3c;
+  color: white;
+}
+
+.slot .fecha {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+}
+
+.slot .hora {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.slot .cupos {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+/* Citas */
+.citas-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.cita-card {
+  background: #2a2a2a;
+  padding: 1.2rem;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+}
+
+.cita-card p {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.badge-pendiente { background: #f39c12; color: #111; }
+.badge-confirmada { background: #3498db; color: white; }
+.badge-completada { background: #27ae60; color: white; }
+.badge-cancelada { background: #e74c3c; color: white; }

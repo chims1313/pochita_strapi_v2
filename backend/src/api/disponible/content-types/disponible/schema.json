@@ -14,20 +14,24 @@
     "fecha": {
       "type": "date"
     },
-    "hora_desde": {
-      "type": "datetime"
+    "hora_inicio": {
+      "type": "time"
     },
-    "hora_hasta": {
-      "type": "datetime"
+    "hora_fin": {
+      "type": "time"
     },
-    "slot_minutos": {
+    "cupos_totales": {
+      "type": "integer",
+      "default": 1
+    },
+    "cupos_disponibles": {
       "type": "integer"
     },
-    "disponible": {
+    "veterinario": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "veterinario"
+      "inversedBy": "disponibles"
     }
   }
 }

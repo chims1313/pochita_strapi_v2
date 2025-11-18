@@ -12,38 +12,46 @@
   "pluginOptions": {},
   "attributes": {
     "fecha": {
-      "type": "date"
+      "type": "datetime"
     },
-    "hora": {
-      "type": "time"
+    "motivo": {
+      "type": "text"
     },
     "estado": {
       "type": "enumeration",
-      "default": "valores: pendiente, confirmada, atendida, cancelada",
       "enum": [
-        "valores: pendiente, confirmada, atendida, cancelada"
+        "pendiente",
+        "confirmada",
+        "completada",
+        "cancelada"
       ]
     },
-    "motivo": {
-      "type": "string"
-    },
-    "veterinario": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "plugin::users-permissions.user",
-      "inversedBy": "quien_atiende"
+    "notas_veterinario": {
+      "type": "text"
     },
     "cliente": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "dueno_de_la_mascota"
+      "inversedBy": "citas_como_cliente"
     },
     "mascota": {
       "type": "relation",
       "relation": "manyToOne",
+      "target": "api::mascota.mascota",
+      "inversedBy": "citas"
+    },
+    "veterinario": {
+      "type": "relation",
+      "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "mascotas"
+      "inversedBy": "citas_como_veterinario"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "cliente"
     }
   }
 }

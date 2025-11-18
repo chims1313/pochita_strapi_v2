@@ -3,27 +3,30 @@
 module.exports = {
   async list(ctx) {
     try {
-      const userId = ctx.request.query.userId;
+      // Obtener usuario del JWT (automáticamente disponible si auth está activo)
+      const userId = ctx.state.user?.id;
 
       if (!userId) {
-        ctx.status = 400;
-        ctx.body = { error: 'Falta userId' };
-        return;
+        return ctx.unauthorized('Debes estar autenticado');
       }
 
-      const mascotas = await strapi
-        .documents('api::mascota.mascota')
-        .findMany({
-          filters: {
-            dueno: { id: { $eq: Number(userId) } },
-          },
-        });
+      // Buscar mascotas del usuario logueado
+      const mascotas = await strapi.documents('api::mascota.mascota').findMany({
+        filters: {
+          dueno: { id: { $eq: userId } },
+        },
+        populate: {
+          dueno: {
+            fields: ['id', 'username', 'email']
+          }
+        },
+      });
 
-      ctx.body = mascotas;
+      return mascotas;
     } catch (err) {
       console.error('Error en /api/mis-mascotas:', err);
       ctx.status = 500;
-      ctx.body = { error: 'Error interno' };
+      return { error: 'Error al obtener las mascotas' };
     }
   },
 };

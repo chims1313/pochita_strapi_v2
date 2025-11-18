@@ -1,308 +1,647 @@
 ---
-import "../styles/pochita.css";
+// src/pages/login.astro
+const STRAPI_URL = "http://localhost:1337";
 
-const STRAPI_URL = import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
-
-let error = "";
-
+// Manejo de LOGIN
 if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = formData.get("action");
+
   try {
-    const formData = await Astro.request.formData();
-    const identifier = formData.get("username");
-    const password = formData.get("password");
+    if (action === "login") {
+      // PROCESO DE LOGIN
+      const identifier = formData.get("username");
+      const password = formData.get("password");
 
-    console.log('🔐 Intentando login con:', identifier);
+      console.log("🔐 Intentando login con:", identifier);
 
-    // 1) Login: /api/auth/local
-    const authResponse = await fetch(`${STRAPI_URL}/api/auth/local`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password }),
-    });
+      const authResponse = await fetch(`${STRAPI_URL}/api/auth/local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password }),
+      });
 
-    const authData = await authResponse.json();
+      if (!authResponse.ok) {
+        const errorData = await authResponse.json();
+        console.error("❌ Error de autenticación:", errorData);
+        return Astro.redirect("/login?error=invalid");
+      }
 
-    if (!authResponse.ok) {
-      console.error("❌ Error Strapi login:", authResponse.status, authData);
-      error = authData?.error?.message || `Error ${authResponse.status}`;
-    } else {
+      const authData = await authResponse.json();
       const jwt = authData.jwt;
+      console.log("✅ JWT recibido de Strapi");
 
-      console.log('✅ JWT recibido de Strapi');
+      Astro.cookies.set("jwt", jwt, {
+        path: "/",
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
 
-      // 2) Obtener usuario con rol populado: /api/users/me?populate=role
-      const meResponse = await fetch(
-        `${STRAPI_URL}/api/users/me?populate=role`,
-        {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        }
-      );
+      console.log("✅ Cookie JWT guardada");
 
-      const meData = await meResponse.json();
+      const meResponse = await fetch(`${STRAPI_URL}/api/users/me`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!meResponse.ok) {
-        console.error("❌ Error obteniendo /users/me:", meResponse.status, meData);
-        error = meData?.error?.message || `Error ${meResponse.status}`;
-      } else {
-        // ⬅️ CRÍTICO: Crear objeto con TODA la info incluyendo JWT
-        const userCookie = {
-          id: meData.id,
-          username: meData.username,
-          email: meData.email,
-          jwt: jwt,  // ⬅️ AGREGAR EL JWT AQUÍ
-          role: meData.role,
-        };
-
-        console.log('✅ Guardando cookie con JWT');
-
-        // Guardar todo en UNA sola cookie 'user'
-        Astro.cookies.set("user", JSON.stringify(userCookie), {
-          path: "/",
-          httpOnly: false,  // ⬅️ DEBE ser false para que SSR pueda leerla
-          secure: import.meta.env.PROD,
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7, // 7 días
-        });
-
-        const roleName = meData.role?.name || meData.role?.type || "authenticated";
-
-        console.log('🚀 Redirigiendo a dashboard según rol:', roleName);
-
-        if (roleName === "Veterinario" || roleName === "veterinario") {
-          return Astro.redirect("/dashboard_veterinario");
-        } else if (
-          roleName === "Recepcionista" ||
-          roleName === "recepcionista"
-        ) {
-          return Astro.redirect("/dashboard_recepcionista");
-        } else {
-          return Astro.redirect("/cliente_dashboard");
-        }
+        const errorText = await meResponse.text();
+        console.error("❌ Error al obtener usuario:", errorText);
+        return Astro.redirect("/login?error=server");
       }
+
+      const userData = await meResponse.json();
+      console.log("📦 Usuario completo:", JSON.stringify(userData, null, 2));
+
+      let roleName = "";
+      
+      if (userData.role && typeof userData.role === 'object' && userData.role.name) {
+        roleName = userData.role.name.toLowerCase();
+      } else if (userData.role && typeof userData.role === 'string') {
+        roleName = userData.role.toLowerCase();
+      }
+
+      console.log("🚀 Rol detectado:", roleName, "| Objeto role:", userData.role);
+
+      if (roleName.includes("veterinario")) {
+        console.log("✅ Redirigiendo a dashboard veterinario");
+        return Astro.redirect("/dashboard_veterinario");
+      } else if (roleName.includes("recepcionista")) {
+        console.log("✅ Redirigiendo a dashboard recepcionista");
+        return Astro.redirect("/dashboard_recepcionista");
+      } else if (roleName.includes("cliente")) {
+        console.log("✅ Redirigiendo a dashboard cliente");
+        return Astro.redirect("/cliente_dashboard");
+      } else {
+        console.warn("⚠️ Rol no reconocido:", roleName, "- Redirigiendo a cliente por defecto");
+        return Astro.redirect("/cliente_dashboard");
+      }
+    } 
+    else if (action === "register") {
+      // PROCESO DE REGISTRO
+      const username = formData.get("reg_username");
+      const email = formData.get("reg_email");
+      const password = formData.get("reg_password");
+      const confirmPassword = formData.get("reg_confirmPassword");
+
+      console.log("📝 Intentando registrar usuario:", username);
+
+      if (password !== confirmPassword) {
+        console.error("❌ Las contraseñas no coinciden");
+        return Astro.redirect("/login?error=password_mismatch&view=register");
+      }
+
+      if (password.length < 6) {
+        console.error("❌ Contraseña muy corta");
+        return Astro.redirect("/login?error=password_short&view=register");
+      }
+
+      const registerResponse = await fetch(`${STRAPI_URL}/api/auth/local/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
+      });
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        console.error("❌ Error de registro:", errorData);
+        
+        if (errorData.error?.message?.includes("already taken")) {
+          return Astro.redirect("/login?error=user_exists&view=register");
+        }
+        
+        return Astro.redirect("/login?error=server&view=register");
+      }
+
+      const registerData = await registerResponse.json();
+      const jwt = registerData.jwt;
+      console.log("✅ Usuario registrado exitosamente");
+
+      Astro.cookies.set("jwt", jwt, {
+        path: "/",
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      console.log("✅ Cookie JWT guardada - Redirigiendo a dashboard cliente");
+      return Astro.redirect("/cliente_dashboard");
     }
-  } catch (e) {
-    console.error("💥 Error en login:", e);
-    error = "Error de servidor";
+  } catch (error) {
+    console.error("💥 Error en login/registro:", error);
+    return Astro.redirect("/login?error=server");
   }
 }
+
+const error = Astro.url.searchParams.get("error");
+const view = Astro.url.searchParams.get("view");
 ---
 
-
+<!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <title>Login | Veterinaria Pochita</title>
-  </head>
-  <body>
-    <header class="main-nav">
-      <a href="/" class="brand-link">
-        <span class="site-name">Veterinaria Pochita</span>
-      </a>
-      <div class="nav-buttons">
-        <a href="/" class="nav-btn">Inicio</a>
-      </div>
-    </header>
-
-    <main class="site-container auth-panels">
-      <!-- Panel de LOGIN -->
-      <section class="login-container panel panel-login panel-visible" id="panel-login">
-        <h1 class="auth-title">Iniciar sesión</h1>
-        <p class="auth-subtitle">
-          Accede con tu cuenta de cliente, veterinario o recepcionista.
-        </p>
-
-        {error && <p class="form-error">{error}</p>}
-
-        <form method="POST" id="login-form">
-          <label>
-            Usuario o email
-            <input type="text" name="username" required />
-          </label>
-
-          <label>
-            Contraseña
-            <input type="password" name="password" required />
-          </label>
-
-          <button type="submit">Entrar</button>
-        </form>
-
-        <p class="hint-text">
-          ¿No tienes cuenta?
-          <button type="button" class="link-like" id="btn-show-register">
-            Crear cuenta
-          </button>
-        </p>
-      </section>
-
-      <!-- Panel de REGISTER (solo UI, puedes conectar a /auth/local/register luego) -->
-      <section class="login-container panel panel-register" id="panel-register">
-        <h1 class="auth-title">Crear cuenta</h1>
-        <p class="auth-subtitle">
-          Registra una cuenta para agendar citas y gestionar tus mascotas.
-        </p>
-
-        <form method="POST" id="register-form">
-          <label>
-            Usuario
-            <input type="text" name="username" required />
-          </label>
-
-          <label>
-            Email
-            <input type="email" name="email" required />
-          </label>
-
-          <label>
-            Contraseña
-            <input type="password" name="password" required />
-          </label>
-
-          <button type="submit">Registrarse</button>
-        </form>
-
-        <p class="hint-text">
-          ¿Ya tienes cuenta?
-          <button type="button" class="link-like" id="btn-show-login">
-            Volver a iniciar sesión
-          </button>
-        </p>
-      </section>
-    </main>
-
-    <script>
-      const loginPanel = document.getElementById("panel-login");
-      const registerPanel = document.getElementById("panel-register");
-      const btnShowRegister = document.getElementById("btn-show-register");
-      const btnShowLogin = document.getElementById("btn-show-login");
-
-      function showRegister() {
-        if (!loginPanel || !registerPanel) return;
-        loginPanel.classList.remove("panel-visible");
-        loginPanel.classList.add("panel-hidden");
-        registerPanel.classList.remove("panel-hidden");
-        registerPanel.classList.add("panel-visible");
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Veterinaria Pochita</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      function showLogin() {
-        if (!loginPanel || !registerPanel) return;
-        registerPanel.classList.remove("panel-visible");
-        registerPanel.classList.add("panel-hidden");
-        loginPanel.classList.remove("panel-hidden");
-        loginPanel.classList.add("panel-visible");
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #1a1a1a;
+        background-image: url('/pochita-pattern.jpeg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #ffffff;
+        padding: 20px;
       }
 
-      btnShowRegister?.addEventListener("click", showRegister);
-      btnShowLogin?.addEventListener("click", showLogin);
-    </script>
-      <script>
-        const STRAPI_URL = import.meta.env?.PUBLIC_STRAPI_URL || "http://localhost:1337";
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(26, 26, 26, 0.9);
+        z-index: -1;
+      }
 
-        const registerForm = document.getElementById("register-form") as HTMLFormElement | null;
-        const registerPanel = document.getElementById("panel-register") as HTMLElement | null;
+      .auth-container {
+        background: rgba(45, 45, 45, 0.95);
+        border-radius: 20px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        width: 100%;
+        max-width: 450px;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+        overflow: hidden;
+      }
 
-        function showError(panel: HTMLElement | null, msg: string) {
-          if (!panel) return;
-          let el = panel.querySelector(".form-error");
-          if (!el) {
-            el = document.createElement("p");
-            el.className = "form-error";
-            const form = panel.querySelector("form");
-            if (form) panel.insertBefore(el, form);
-            else panel.appendChild(el);
-          }
-          el.textContent = msg;
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        justify-content: center;
+        margin-bottom: 2rem;
+      }
+
+      .logo .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .logo h1 {
+        font-size: 1.8rem;
+        color: #f39c12;
+        margin: 0;
+        text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+      }
+
+      .logo p {
+        color: #b0b0b0;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        margin-top: 0.4rem;
+      }
+
+      .logo-img-small {
+        height: 1.8rem;
+        width: auto;
+        display: block;
+      }
+
+      /* Contenedores de formularios */
+      .form-wrapper {
+        position: relative;
+      }
+
+      .form-container {
+        opacity: 1;
+        transition: opacity 0.4s ease, transform 0.4s ease;
+        transform: translateX(0);
+      }
+
+      .form-container.hidden {
+        display: none;
+      }
+
+      .form-container.fade-out {
+        opacity: 0;
+        transform: translateX(-30px);
+      }
+
+      .form-container.fade-in {
+        animation: fadeIn 0.4s ease forwards;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #f39c12;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      input {
+        width: 100%;
+        padding: 0.9rem 1rem;
+        background: rgba(30, 30, 30, 0.7);
+        border: 2px solid rgba(243, 156, 18, 0.3);
+        border-radius: 10px;
+        color: #ffffff;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #f39c12;
+        background: rgba(30, 30, 30, 0.9);
+        box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+      }
+
+      input::placeholder {
+        color: #707070;
+      }
+
+      .btn-submit {
+        width: 100%;
+        padding: 1rem;
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(243, 156, 18, 0.4);
+      }
+
+      .btn-submit:active {
+        transform: translateY(0);
+      }
+
+      .divider {
+        text-align: center;
+        margin: 1.5rem 0;
+        position: relative;
+      }
+
+      .divider::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 100%;
+        height: 1px;
+        background: rgba(243, 156, 18, 0.2);
+      }
+
+      .divider span {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 0 1rem;
+        position: relative;
+        color: #999;
+        font-size: 0.9rem;
+      }
+
+      .btn-switch {
+        width: 100%;
+        background: rgba(30, 30, 30, 0.8);
+        color: #f39c12;
+        padding: 1rem;
+        border: 2px solid rgba(243, 156, 18, 0.5);
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-switch:hover {
+        background: rgba(243, 156, 18, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .back-link {
+        text-align: center;
+        margin-top: 1.5rem;
+      }
+
+      .back-link a {
+        color: #f39c12;
+        text-decoration: none;
+        font-size: 0.95rem;
+        transition: color 0.3s ease;
+      }
+
+      .back-link a:hover {
+        color: #e67e22;
+        text-decoration: underline;
+      }
+
+      .error-message {
+        background: rgba(231, 76, 60, 0.2);
+        border: 1px solid rgba(231, 76, 60, 0.5);
+        color: #e74c3c;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        font-size: 0.95rem;
+      }
+
+      .info-box {
+        background: rgba(52, 152, 219, 0.1);
+        border: 1px solid rgba(52, 152, 219, 0.3);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
+        color: #b0b0b0;
+      }
+
+      .info-box strong {
+        color: #3498db;
+      }
+
+      .password-requirements {
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 0.3rem;
+      }
+
+      @media (max-width: 480px) {
+        .auth-container {
+          padding: 2rem 1.5rem;
         }
 
-        registerForm?.addEventListener("submit", async (e) => {
-          e.preventDefault();
+        .logo h1 {
+          font-size: 1.6rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="auth-container">
+      <div class="logo">
+        <a href="/" class="brand-link">
+          <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
+          <h1>Veterinaria Pochita</h1>
+        </a>
+        <p id="subtitle">Sistema de Gestión</p>
+      </div>
 
-          const formData = new FormData(registerForm as HTMLFormElement);
-          const username = formData.get("username");
-          const email = formData.get("email");
-          const password = formData.get("password");
+      {error === "invalid" && (
+        <div class="error-message">
+          ❌ Usuario o contraseña incorrectos
+        </div>
+      )}
+      {error === "password_mismatch" && (
+        <div class="error-message">
+          ❌ Las contraseñas no coinciden
+        </div>
+      )}
+      {error === "password_short" && (
+        <div class="error-message">
+          ❌ La contraseña debe tener al menos 6 caracteres
+        </div>
+      )}
+      {error === "user_exists" && (
+        <div class="error-message">
+          ❌ El usuario o email ya existe
+        </div>
+      )}
+      {error === "server" && (
+        <div class="error-message">
+          ⚠️ Error del servidor. Intenta nuevamente.
+        </div>
+      )}
 
-          try {
-            // 1) Crear usuario
-            const res = await fetch(`${STRAPI_URL}/api/auth/local/register`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username, email, password }),
-            });
+      <div class="form-wrapper">
+        <!-- FORMULARIO DE LOGIN -->
+        <div class="form-container" id="loginForm">
+          <form method="POST">
+            <input type="hidden" name="action" value="login" />
+            
+            <div class="form-group">
+              <label for="username">Usuario o Email</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="tu@email.com o usuario"
+                required
+                autocomplete="username"
+              />
+            </div>
 
-            const data = await res.json();
+            <div class="form-group">
+              <label for="password">Contraseña</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              />
+            </div>
 
-            if (!res.ok) {
-              showError(registerPanel, data?.error?.message || `Error ${res.status}`);
-              return;
-            }
+            <button type="submit" class="btn-submit">Iniciar Sesión</button>
+          </form>
 
-            // Si registro requiere confirmación por email, puede no venir JWT
-            if (!data.jwt) {
-              window.location.href = "/login?confirmEmail=1";
-              return;
-            }
+          <div class="divider">
+            <span>¿No tienes cuenta?</span>
+          </div>
 
-            // 2) Obtener usuario y role
-            const me = await fetch(`${STRAPI_URL}/api/users/me?populate=role`, {
-              headers: { Authorization: `Bearer ${data.jwt}` },
-            });
+          <button type="button" class="btn-switch" id="showRegister">
+            Crear cuenta nueva
+          </button>
 
-            const meData = await me.json();
+          <div class="back-link">
+            <a href="/">← Volver al inicio</a>
+          </div>
 
-            if (!me.ok) {
-              showError(registerPanel, meData?.error?.message || `Error ${me.status}`);
-              return;
-            }
+          <div class="info-box">
+            <strong>💡 Usuarios de prueba:</strong><br />
+            • cliente_test / Test1234<br />
+            • recepcionista_test / Test1234<br />
+            • veterinario_test / Test1234
+          </div>
+        </div>
 
-            const roleName = meData.role?.name || meData.role?.type || "authenticated";
-            if (roleName === "Veterinario" || roleName === "veterinario") {
-              window.location.href = "/dashboard_veterinario";
-            } else if (roleName === "Recepcionista" || roleName === "recepcionista") {
-              window.location.href = "/dashboard_recepcionista";
-            } else {
-              window.location.href = "/cliente_dashboard";
-            }
-          } catch (err) {
-            showError(registerPanel, "Error de red o servidor");
-            console.error(err);
-          }
-        });
-      </script>
-      <script>
-        // Client-side login handler: envía credenciales a /api/login y redirige
-        document.querySelector('#login-form')?.addEventListener('submit', async function handleLogin(e) {
-          e.preventDefault();
-          const form = e.target;
-          const formData = new FormData(form);
-          const identifier = formData.get('username') || formData.get('email');
-          const password = formData.get('password');
+        <!-- FORMULARIO DE REGISTRO -->
+        <div class="form-container hidden" id="registerForm">
+          <form method="POST">
+            <input type="hidden" name="action" value="register" />
+            
+            <div class="form-group">
+              <label for="reg_username">Nombre de usuario</label>
+              <input
+                type="text"
+                id="reg_username"
+                name="reg_username"
+                placeholder="Elige un nombre de usuario"
+                required
+                autocomplete="username"
+                minlength="3"
+              />
+            </div>
 
-          try {
-            const res = await fetch('/api/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({ identifier, password }),
-            });
+            <div class="form-group">
+              <label for="reg_email">Correo electrónico</label>
+              <input
+                type="email"
+                id="reg_email"
+                name="reg_email"
+                placeholder="tu@email.com"
+                required
+                autocomplete="email"
+              />
+            </div>
 
-            const data = await res.json();
+            <div class="form-group">
+              <label for="reg_password">Contraseña</label>
+              <input
+                type="password"
+                id="reg_password"
+                name="reg_password"
+                placeholder="••••••••"
+                required
+                autocomplete="new-password"
+                minlength="6"
+              />
+              <div class="password-requirements">
+                Mínimo 6 caracteres
+              </div>
+            </div>
 
-            if (data.ok) {
-              // Esperar un momento para que la cookie se propague
-              await new Promise(resolve => setTimeout(resolve, 100));
-              // Redirigir al dashboard genérico (la app también redirige por rol en SSR)
-              window.location.href = '/dashboard';
-            } else {
-              alert('Error: ' + (data.error || 'Login fallido'));
-            }
-          } catch (err) {
-            console.error('Error en login:', err);
-            alert('Error de conexión');
-          }
-        });
-      </script>
+            <div class="form-group">
+              <label for="reg_confirmPassword">Confirmar contraseña</label>
+              <input
+                type="password"
+                id="reg_confirmPassword"
+                name="reg_confirmPassword"
+                placeholder="••••••••"
+                required
+                autocomplete="new-password"
+                minlength="6"
+              />
+            </div>
+
+            <button type="submit" class="btn-submit">Crear cuenta</button>
+          </form>
+
+          <div class="divider">
+            <span>¿Ya tienes cuenta?</span>
+          </div>
+
+          <button type="button" class="btn-switch" id="showLogin">
+            Iniciar sesión
+          </button>
+
+          <div class="back-link">
+            <a href="/">← Volver al inicio</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const showRegisterBtn = document.getElementById('showRegister');
+      const showLoginBtn = document.getElementById('showLogin');
+      const subtitle = document.getElementById('subtitle');
+
+      showRegisterBtn.addEventListener('click', () => {
+        // Fade out login
+        loginForm.classList.add('fade-out');
+        
+        setTimeout(() => {
+          loginForm.classList.add('hidden');
+          loginForm.classList.remove('fade-out');
+          
+          // Fade in register
+          registerForm.classList.remove('hidden');
+          registerForm.classList.add('fade-in');
+          subtitle.textContent = 'Crear cuenta nueva';
+        }, 400);
+      });
+
+      showLoginBtn.addEventListener('click', () => {
+        // Fade out register
+        registerForm.classList.add('fade-out');
+        
+        setTimeout(() => {
+          registerForm.classList.add('hidden');
+          registerForm.classList.remove('fade-out', 'fade-in');
+          
+          // Fade in login
+          loginForm.classList.remove('hidden');
+          loginForm.classList.add('fade-in');
+          subtitle.textContent = 'Sistema de Gestión';
+        }, 400);
+      });
+
+      // Si hay error en registro, mostrar formulario de registro
+      const urlParams = new URLSearchParams(window.location.search);
+      const view = urlParams.get('view');
+      
+      if (view === 'register') {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        registerForm.classList.add('fade-in');
+        subtitle.textContent = 'Crear cuenta nueva';
+      }
+    </script>
   </body>
 </html>

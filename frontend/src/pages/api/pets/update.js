@@ -2,49 +2,46 @@ const STRAPI_URL = import.meta.env.PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
 export async function POST({ request, cookies }) {
   try {
-    // 1. Obtener la cookie del usuario
     const userCookie = cookies.get('user');
-    
-    if (!userCookie || !userCookie.value) {
+    if (!userCookie?.value) {
       return new Response(JSON.stringify({ error: 'No autenticado' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // 2. Parsear la cookie
     let user;
     try {
       user = JSON.parse(userCookie.value);
-    } catch (parseError) {
-      console.error('Error parseando cookie:', parseError);
+    } catch {
       return new Response(JSON.stringify({ error: 'Cookie corrupta' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    
-    // 3. Verificar JWT
+
     if (!user.jwt) {
-      return new Response(JSON.stringify({ 
-        error: 'Token no encontrado',
-        hint: 'Por favor, cierra sesión y vuelve a iniciar sesión'
-      }), {
+      return new Response(JSON.stringify({ error: 'Token no encontrado' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // 4. Obtener datos del formulario
     const formData = await request.formData();
-
+    const petId = formData.get('id');
     const nombre = formData.get('nombre');
     const especie = formData.get('especie') || 'perro';
     const raza = formData.get('raza') || '';
     const edad = parseInt(formData.get('edad')) || 0;
     const notas = formData.get('notas') || '';
 
-    // 5. Preparar payload (SIN dueno - Strapi lo asigna automáticamente)
+    if (!petId) {
+      return new Response(JSON.stringify({ error: 'ID de mascota requerido' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const payload = {
       data: {
         nombre,
@@ -55,9 +52,9 @@ export async function POST({ request, cookies }) {
       }
     };
 
-    // 6. Crear mascota en Strapi
-    const res = await fetch(`${STRAPI_URL}/api/mascotas`, {
-      method: 'POST',
+    // Actualizar mascota en Strapi
+    const res = await fetch(`${STRAPI_URL}/api/mascotas/${petId}`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${user.jwt}`,
@@ -65,21 +62,12 @@ export async function POST({ request, cookies }) {
       body: JSON.stringify(payload),
     });
 
-    // 7. Manejar respuesta
     if (!res.ok) {
-      const errorText = await res.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { message: errorText };
-      }
-      
-      console.error('Error de Strapi:', errorData);
-      
+      const errorData = await res.json();
+      console.error('Error al actualizar mascota:', errorData);
       return new Response(JSON.stringify({ 
-        error: 'Error al crear mascota',
-        details: errorData
+        error: 'Error al actualizar mascota',
+        details: errorData 
       }), {
         status: res.status,
         headers: { 'Content-Type': 'application/json' },
@@ -87,21 +75,18 @@ export async function POST({ request, cookies }) {
     }
 
     const result = await res.json();
-    console.log('Mascota creada:', result);
+    console.log('Mascota actualizada:', result);
     
-    // 8. Redirigir al dashboard
     return new Response(null, {
       status: 303,
-      headers: { 
-        'Location': '/cliente_dashboard',
-      },
+      headers: { 'Location': '/cliente_dashboard' },
     });
-    
+
   } catch (error) {
-    console.error('Error en /api/pets:', error);
+    console.error('Error en /api/pets/update:', error);
     return new Response(JSON.stringify({ 
-      error: 'Error interno del servidor',
-      message: error.message
+      error: 'Error interno',
+      message: error.message 
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

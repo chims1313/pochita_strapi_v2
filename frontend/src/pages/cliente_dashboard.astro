@@ -1,324 +1,451 @@
 ---
-import "../styles/pochita.css";
+const STRAPI_URL = "http://localhost:1337";
 
-const userCookie = Astro.cookies.get("user")?.value;
-let user = null;
+// Verificación de autenticación
+const jwt = Astro.cookies.get("jwt")?.value;
 
-try {
-  user = userCookie ? JSON.parse(userCookie) : null;
-} catch {
-  user = null;
-}
-
-if (!user) {
+if (!jwt) {
+  console.log("❌ No hay JWT - Redirigiendo a login");
   return Astro.redirect("/login");
 }
 
-const displayName = user.username || user.email || "cliente";
-const today = new Date().toLocaleDateString("es-CL", {
-  day: "2-digit",
-  month: "2-digit",
-});
-
-// URL de Strapi
-const STRAPI_URL =
-  import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
-
-// 1) Cargar mascotas del cliente
+let userData;
 let mascotas = [];
-if (user) {
-  try {
-    const res = await fetch(
-      `${STRAPI_URL}/api/mascotas?populate[dueno]=true`
-    );
-    if (res.ok) {
-      const json = await res.json();
-      mascotas = (json.data || [])
-        .filter((item) => {
-          const duenoRel = item.attributes?.dueno?.data;
-          return duenoRel && duenoRel.id === user.id;
-        })
-        .map((item) => ({
-          id: item.id,
-          ...(item.attributes || {}),
-        }));
-    } else {
-      console.error(
-        "ERROR cargando mascotas:",
-        res.status,
-        await res.text()
-      );
-    }
-  } catch (e) {
-    console.error("Error fetch mascotas:", e);
-  }
-}
 
-// 2) Cargar citas del cliente (solo para mostrar estado)
-let citas = [];
-if (user) {
-  try {
-    const res = await fetch(
-      `${STRAPI_URL}/api/citas?populate[mascota]=true&populate[veterinario]=true&populate[cliente]=true`
-    );
-    if (res.ok) {
-      const json = await res.json();
-      citas = (json.data || [])
-        .filter((item) => {
-          const cli = item.attributes?.cliente?.data;
-          return cli && cli.id === user.id;
-        })
-        .map((item) => ({
-          id: item.id,
-          ...(item.attributes || {}),
-        }));
-    } else {
-      console.error("ERROR cargando citas:", res.status, await res.text());
-    }
-  } catch (e) {
-    console.error("Error fetch citas cliente:", e);
+try {
+  // Obtener datos del usuario con rol
+  const userResponse = await fetch(`${STRAPI_URL}/api/users/me`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+
+  if (!userResponse.ok) {
+    console.log("❌ JWT inválido - Redirigiendo a login");
+    Astro.cookies.delete("jwt", { path: "/" });
+    return Astro.redirect("/login");
   }
+
+  userData = await userResponse.json();
+  console.log("✅ Usuario autenticado:", userData.username, "| Rol:", userData.role?.name);
+
+  // Verificar que el usuario tiene rol de Cliente
+  const roleName = userData.role?.name?.toLowerCase() || "";
+  
+  if (!roleName.includes("cliente")) {
+    console.log("⚠️ Usuario no autorizado para este dashboard - Rol:", roleName);
+    
+    if (roleName.includes("veterinario")) {
+      return Astro.redirect("/dashboard_veterinario");
+    } else if (roleName.includes("recepcionista")) {
+      return Astro.redirect("/dashboard_recepcionista");
+    } else {
+      return Astro.redirect("/login");
+    }
+  }
+
+  console.log("✅ Acceso autorizado a dashboard cliente");
+
+  // Obtener mascotas del usuario
+  const mascotasResponse = await fetch(
+    `${STRAPI_URL}/api/mascotas?filters[dueno][id][$eq]=${userData.id}&populate=*`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (mascotasResponse.ok) {
+    const mascotasData = await mascotasResponse.json();
+    mascotas = mascotasData.data || [];
+    console.log(`📦 Mascotas cargadas: ${mascotas.length}`);
+  }
+
+} catch (error) {
+  console.error("💥 Error verificando usuario:", error);
+  return Astro.redirect("/login");
 }
 ---
 
-<main class="cliente-dashboard">
-  <header class="dashboard-header dashboard-header--center">
-    <h1 class="dashboard-title">Panel del cliente</h1>
-    <p class="dashboard-subtitle">
-      Hola, {displayName}. Hoy es {today}.
-    </p>
-  </header>
-
-  <section class="dashboard-grid">
-    <!-- Columna izquierda: Agendar nueva cita -->
-    <section class="card">
-      <div class="card-header">
-        <h2>Agendar nueva cita</h2>
-      </div>
-      <div class="card-body">
-        <p>
-          Solicita una hora para tu mascota seleccionando fecha, hora y motivo.
-        </p>
-
-        <form method="post" action="/api/appointments" class="form-cita">
-          <label>
-            Mascota
-            <select name="mascota" required>
-              <option value="">Seleccionar...</option>
-              {mascotas.map((m) => (
-                <option value={m.id}>{m.nombre}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Motivo
-            <input
-              type="text"
-              name="motivo"
-              placeholder="Vacunas, control, consulta..."
-            />
-          </label>
-
-          <div class="availability-row">
-            <label>
-              Fecha
-              <input type="date" name="fecha" required />
-            </label>
-            <label>
-              Hora
-              <input type="time" name="hora" required />
-            </label>
-          </div>
-
-          <label>
-            Preferencia de veterinario
-            <select name="veterinario_preferencia">
-              <option value="">Cualquiera</option>
-            </select>
-          </label>
-
-          <button type="submit" class="btn-primary">
-            Solicitar cita
-          </button>
-
-          <p class="nota-form">
-            M&aacute;s adelante este formulario puede enviar la solicitud a
-            Strapi para que recepci&oacute;n la confirme.
-          </p>
-        </form>
-      </div>
-    </section>
-
-    <!-- Columna derecha: Ver disponibilidad -->
-    <section class="card">
-      <div class="card-header">
-        <h2>Ver disponibilidad</h2>
-      </div>
-      <div class="card-body">
-        <p>
-          Revisa los bloques de horario disponibles para las pr&oacute;ximas
-          fechas.
-        </p>
-
-        <article class="bloque-disponibilidad">
-          <h3>Hoy</h3>
-          <p>15:30 &ndash; 17:00 &middot; 3 cupos</p>
-          <button class="badge-disponible">Disponible</button>
-        </article>
-
-        <article class="bloque-disponibilidad">
-          <h3>Ma&ntilde;ana</h3>
-          <p>10:00 &ndash; 12:00 &middot; 2 cupos</p>
-          <button class="badge-disponible">Disponible</button>
-        </article>
-
-        <article class="bloque-disponibilidad">
-          <h3>Pr&oacute;ximo lunes</h3>
-          <p>09:00 &ndash; 13:00 &middot; 4 cupos</p>
-          <button class="badge-disponible">Disponible</button>
-        </article>
-
-        <p class="nota-form">
-          Estos horarios son de ejemplo; luego se pueden obtener desde la API
-          seg&uacute;n la disponibilidad real de los veterinarios.
-        </p>
-      </div>
-    </section>
-
-    <!-- Mis mascotas -->
-    <section class="card card-wide">
-      <div class="card-header">
-        <h2>Mis mascotas</h2>
-      </div>
-      <div class="card-body">
-        {mascotas.length === 0 ? (
-          <div class="mis-mascotas-empty">
-            <p>No tienes mascotas registradas a&uacute;n.</p>
-            <button
-              type="button"
-              id="btn-agregar-mascota-empty"
-              class="btn-primary"
-            >
-              Agregar mascota
-            </button>
-          </div>
-        ) : (
-          <>
-            <div class="mascotas-grid">
-              {mascotas.map((m) => (
-                <article class="mascota-card">
-                  <h3>{m.nombre}</h3>
-                  <p>{m.especie} &middot; {m.raza}</p>
-                  <p>Edad: {m.edad} a&ntilde;os</p>
-                  <p>{m.notas}</p>
-                </article>
-              ))}
-            </div>
-
-            <div class="mis-mascotas-actions">
-              <button
-                type="button"
-                id="btn-agregar-mascota-plus"
-                class="btn-secundario"
-              >
-                + Agregar otra mascota
-              </button>
-            </div>
-          </>
-        )}
-
-        <div id="form-nueva-mascota" class="mascota-form-wrapper oculto">
-          <h3>Perfil de mascota</h3>
-          <form method="post" action="/api/pets" class="mascota-form">
-            <label>
-              Nombre
-              <input type="text" name="nombre" required />
-            </label>
-
-            <label>
-              Especie
-              <select name="especie">
-                <option value="perro">Perro</option>
-                <option value="gato">Gato</option>
-                <option value="otro">Otro</option>
-              </select>
-            </label>
-
-            <label>
-              Raza
-              <input type="text" name="raza" />
-            </label>
-
-            <label>
-              Edad
-              <input type="number" name="edad" min="0" />
-            </label>
-
-            <label>
-              Notas
-              <textarea name="notas"></textarea>
-            </label>
-
-            <button type="submit" class="btn-primary">
-              Guardar mascota
-            </button>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    <!-- Mis citas -->
-    <section class="card card-wide">
-      <div class="card-header">
-        <h2>Mis citas</h2>
-      </div>
-      <div class="card-body">
-        {citas.length === 0 ? (
-          <p>No tienes citas registradas a&uacute;n.</p>
-        ) : (
-          <table class="tabla-citas table-appointments">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Mascota</th>
-                <th>Veterinario</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {citas.map((cita) => (
-                <tr>
-                  <td>{cita.fecha}</td>
-                  <td>{cita.hora?.slice(0, 5)}</td>
-                  <td>{cita.mascota?.data?.attributes?.nombre || "-"}</td>
-                  <td>{cita.veterinario?.data?.attributes?.username || "-"}</td>
-                  <td>{cita.estado || "Pendiente"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </section>
-  </section>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const formWrapper = document.getElementById("form-nueva-mascota");
-      const emptyBtn = document.getElementById("btn-agregar-mascota-empty");
-      const plusBtn = document.getElementById("btn-agregar-mascota-plus");
-
-      function abrirFormulario() {
-        if (formWrapper) {
-          formWrapper.classList.remove("oculto");
-          formWrapper.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Cliente - Veterinaria Pochita</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      if (emptyBtn) emptyBtn.addEventListener("click", abrirFormulario);
-      if (plusBtn) plusBtn.addEventListener("click", abrirFormulario);
-    });
-  </script>
-</main>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #1a1a1a;
+        background-image: url('/pochita-pattern.jpeg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+        color: #ffffff;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(26, 26, 26, 0.9);
+        z-index: -1;
+      }
+
+      header {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 1.5rem 2rem;
+        border-bottom: 2px solid rgba(243, 156, 18, 0.3);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(10px);
+      }
+
+      .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header-content h1 {
+        margin: 0;
+        color: #f39c12;
+        font-size: 1.8rem;
+        text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+      }
+
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .logo-img-small {
+        height: 1.8rem;
+        width: auto;
+        display: block;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .username {
+        color: #d0d0d0;
+        font-weight: 500;
+        font-size: 1rem;
+      }
+
+      .btn-logout {
+        background: rgba(231, 76, 60, 0.9);
+        color: white;
+        border: none;
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+      }
+
+      .btn-logout:hover {
+        background: rgba(231, 76, 60, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+      }
+
+      .welcome {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+      }
+
+      .welcome h2 {
+        color: #f39c12;
+        margin-bottom: 0.5rem;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+
+      .section-header h2 {
+        color: #f39c12;
+        font-size: 1.5rem;
+      }
+
+      .btn-add {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+      }
+
+      .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(243, 156, 18, 0.4);
+      }
+
+      .pets-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .pet-card {
+        background: rgba(45, 45, 45, 0.95);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border-left: 5px solid #f39c12;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(243, 156, 18, 0.2);
+      }
+
+      .pet-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(243, 156, 18, 0.2);
+      }
+
+      .pet-card h3 {
+        color: #ffffff;
+        margin-bottom: 1rem;
+        font-size: 1.3rem;
+      }
+
+      .pet-info {
+        color: #b0b0b0;
+        margin-bottom: 0.5rem;
+      }
+
+      .pet-info strong {
+        color: #f39c12;
+      }
+
+      .pet-notes {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: rgba(30, 30, 30, 0.5);
+        border-radius: 8px;
+        color: #d0d0d0;
+        font-style: italic;
+      }
+
+      .pet-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .btn-edit,
+      .btn-delete {
+        flex: 1;
+        padding: 0.6rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-edit {
+        background: rgba(52, 152, 219, 0.9);
+        color: white;
+      }
+
+      .btn-edit:hover {
+        background: rgba(52, 152, 219, 1);
+        transform: translateY(-2px);
+      }
+
+      .btn-delete {
+        background: rgba(231, 76, 60, 0.9);
+        color: white;
+      }
+
+      .btn-delete:hover {
+        background: rgba(231, 76, 60, 1);
+        transform: translateY(-2px);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: rgba(45, 45, 45, 0.5);
+        border-radius: 15px;
+        border: 2px dashed rgba(243, 156, 18, 0.3);
+      }
+
+      .empty-state p {
+        color: #b0b0b0;
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <a href="/" class="brand-link">
+          <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
+          <h1>Veterinaria Pochita</h1>
+        </a>
+        <div class="header-actions">
+          <span class="username">👤 {userData.username}</span>
+          <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="welcome">
+        <h2>Bienvenido, {userData.username} 👋</h2>
+        <p>Gestiona las mascotas de tu familia</p>
+      </div>
+
+      <div class="section-header">
+        <h2>Mis Mascotas</h2>
+        <button class="btn-add" id="btnAgregarMascota">+ Agregar Mascota</button>
+      </div>
+
+      {
+        mascotas.length === 0 ? (
+          <div class="empty-state">
+            <p>No tienes mascotas registradas todavía</p>
+            <button class="btn-add" id="btnAgregarMascota2">
+              + Agregar tu primera mascota
+            </button>
+          </div>
+        ) : (
+          <div class="pets-grid">
+            {mascotas.map((mascota) => (
+              <div class="pet-card">
+                <h3>{mascota.nombre}</h3>
+                <div class="pet-info">
+                  <strong>Especie:</strong> {mascota.especie || "No especificado"}
+                </div>
+                <div class="pet-info">
+                  <strong>Raza:</strong> {mascota.raza || "No especificado"}
+                </div>
+                <div class="pet-info">
+                  <strong>Edad:</strong> {mascota.edad ? `${mascota.edad} años` : "No especificado"}
+                </div>
+                {mascota.notas && (
+                  <div class="pet-notes">
+                    <strong>Notas:</strong> {mascota.notas}
+                  </div>
+                )}
+                <div class="pet-actions">
+                  <button class="btn-edit" data-id={mascota.documentId}>
+                    Editar
+                  </button>
+                  <button class="btn-delete" data-id={mascota.documentId}>
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+    </div>
+
+    <script>
+      // Cerrar sesión
+      document.getElementById('btnCerrarSesion')?.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (response.ok) {
+            console.log('✅ Sesión cerrada exitosamente');
+            window.location.href = '/login';
+          } else {
+            console.error('❌ Error al cerrar sesión');
+            alert('Error al cerrar sesión');
+          }
+        } catch (error) {
+          console.error('💥 Error:', error);
+          alert('Error al cerrar sesión');
+        }
+      });
+
+      // Agregar mascota (placeholder - implementar modal después)
+      document.getElementById('btnAgregarMascota')?.addEventListener('click', () => {
+        alert('Funcionalidad de agregar mascota - Implementar modal');
+      });
+
+      document.getElementById('btnAgregarMascota2')?.addEventListener('click', () => {
+        alert('Funcionalidad de agregar mascota - Implementar modal');
+      });
+
+      // Editar mascota
+      document.querySelectorAll('.btn-edit').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const id = e.target.dataset.id;
+          alert(`Editar mascota con ID: ${id} - Implementar modal`);
+        });
+      });
+
+      // Eliminar mascota
+      document.querySelectorAll('.btn-delete').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.dataset.id;
+          
+          if (confirm('¿Estás seguro de eliminar esta mascota?')) {
+            try {
+              const response = await fetch(`/api/pets/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documentId: id }),
+              });
+
+              if (response.ok) {
+                alert('Mascota eliminada exitosamente');
+                window.location.reload();
+              } else {
+                alert('Error al eliminar la mascota');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Error al eliminar la mascota');
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
