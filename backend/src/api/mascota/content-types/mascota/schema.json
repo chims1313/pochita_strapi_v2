@@ -12,37 +12,40 @@
   "pluginOptions": {},
   "attributes": {
     "nombre": {
-      "type": "text"
+      "type": "text",
+      "required": true
     },
     "especie": {
       "type": "enumeration",
       "enum": [
-        "perro",
-        "gato",
-        "ave",
-        "otro"
+        "Perro",
+        "Gato",
+        "Ave",
+        "Conejo",
+        "Hamster",
+        "Reptil",
+        "Otro"
       ]
     },
     "raza": {
-      "type": "text"
+      "type": "string"
     },
     "edad": {
-      "type": "integer"
+      "type": "integer",
+      "required": true
+    },
+    "peso": {
+      "type": "decimal"
     },
     "notas": {
-      "type": "text"
+      "type": "text",
+      "required": true
     },
-    "mascota": {
+    "dueno": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "dueno"
-    },
-    "citas": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::cita.cita",
-      "mappedBy": "mascota"
+      "inversedBy": "mascotas"
     }
   }
 }

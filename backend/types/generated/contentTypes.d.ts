@@ -455,7 +455,6 @@ export interface ApiCitaCita extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'> &
       Schema.Attribute.Private;
-    mascota: Schema.Attribute.Relation<'manyToOne', 'api::mascota.mascota'>;
     motivo: Schema.Attribute.Text;
     notas_veterinario: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
@@ -520,26 +519,28 @@ export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    citas: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    edad: Schema.Attribute.Integer;
-    especie: Schema.Attribute.Enumeration<['perro', 'gato', 'ave', 'otro']>;
+    dueno: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    edad: Schema.Attribute.Integer & Schema.Attribute.Required;
+    especie: Schema.Attribute.Enumeration<
+      ['Perro', 'Gato', 'Ave', 'Conejo', 'Hamster', 'Reptil', 'Otro']
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::mascota.mascota'
     > &
       Schema.Attribute.Private;
-    mascota: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
-    nombre: Schema.Attribute.Text;
-    notas: Schema.Attribute.Text;
+    nombre: Schema.Attribute.Text & Schema.Attribute.Required;
+    notas: Schema.Attribute.Text & Schema.Attribute.Required;
+    peso: Schema.Attribute.Decimal;
     publishedAt: Schema.Attribute.DateTime;
-    raza: Schema.Attribute.Text;
+    raza: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1057,7 +1058,6 @@ export interface PluginUsersPermissionsUser
       'oneToMany',
       'api::disponible.disponible'
     >;
-    dueno: Schema.Attribute.Relation<'oneToMany', 'api::mascota.mascota'>;
     email: Schema.Attribute.Email &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -1069,6 +1069,7 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    mascotas: Schema.Attribute.Relation<'oneToMany', 'api::mascota.mascota'>;
     notificacions: Schema.Attribute.Relation<
       'oneToMany',
       'api::notificacion.notificacion'

@@ -66,12 +66,6 @@
       "inversedBy": "users",
       "configurable": false
     },
-    "dueno": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::mascota.mascota",
-      "mappedBy": "mascota"
-    },
     "citas_como_cliente": {
       "type": "relation",
       "relation": "oneToMany",
@@ -101,6 +95,12 @@
       "relation": "oneToMany",
       "target": "api::cita.cita",
       "mappedBy": "users_permissions_user"
+    },
+    "mascotas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::mascota.mascota",
+      "mappedBy": "dueno"
     }
   }
 }

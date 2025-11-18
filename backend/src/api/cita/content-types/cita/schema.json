@@ -35,12 +35,6 @@
       "target": "plugin::users-permissions.user",
       "inversedBy": "citas_como_cliente"
     },
-    "mascota": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::mascota.mascota",
-      "inversedBy": "citas"
-    },
     "veterinario": {
       "type": "relation",
       "relation": "manyToOne",
