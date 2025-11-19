@@ -46,6 +46,18 @@
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
       "inversedBy": "mascotas"
+    },
+    "ficha_medicas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::ficha-medica.ficha-medica",
+      "mappedBy": "mascota"
+    },
+    "citas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::cita.cita",
+      "mappedBy": "mascota"
     }
   }
 }

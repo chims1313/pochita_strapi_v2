@@ -1,80 +1,92 @@
 ---
 const STRAPI_URL = "http://localhost:1337";
-
-// Verificación de autenticación
 const jwt = Astro.cookies.get("jwt")?.value;
-
-if (!jwt) {
-  console.log("❌ No hay JWT - Redirigiendo a login");
-  return Astro.redirect("/login");
-}
-
-let userData;
-let citas = [];
-let disponibilidades = [];
+if (!jwt) return Astro.redirect("/login");
+let userData, citas = [], mascotas = [], disponibilidades = [], notificaciones = [], clientes = [];
 
 try {
-  // Obtener datos del usuario con rol
-  const userResponse = await fetch(`${STRAPI_URL}/api/users/me`, {
+  const userResponse = await fetch(`${STRAPI_URL}/api/users/me?populate=role`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
-
   if (!userResponse.ok) {
-    console.log("❌ JWT inválido - Redirigiendo a login");
     Astro.cookies.delete("jwt", { path: "/" });
     return Astro.redirect("/login");
   }
-
   userData = await userResponse.json();
-  console.log("✅ Usuario autenticado:", userData.username, "| Rol:", userData.role?.name);
-
-  // Verificar que el usuario tiene rol de Recepcionista
   const roleName = userData.role?.name?.toLowerCase() || "";
-  
   if (!roleName.includes("recepcionista")) {
-    console.log("⚠️ Usuario no autorizado para este dashboard - Rol:", roleName);
-    
-    if (roleName.includes("veterinario")) {
-      return Astro.redirect("/dashboard_veterinario");
-    } else if (roleName.includes("cliente")) {
-      return Astro.redirect("/cliente_dashboard");
-    } else {
-      return Astro.redirect("/login");
-    }
+    if (roleName.includes("veterinario")) return Astro.redirect("/dashboard_veterinario");
+    if (roleName.includes("cliente")) return Astro.redirect("/cliente_dashboard");
+    return Astro.redirect("/login");
   }
-
-  console.log("✅ Acceso autorizado a dashboard recepcionista");
-
-  // Obtener todas las citas
-  const citasResponse = await fetch(
-    `${STRAPI_URL}/api/citas?populate=*&sort=fecha:desc`,
-    {
-      headers: { Authorization: `Bearer ${jwt}` },
-    }
-  );
-
+  const citasResponse = await fetch(`${STRAPI_URL}/api/citas?populate=*&sort=fecha:desc`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
   if (citasResponse.ok) {
     const citasData = await citasResponse.json();
     citas = citasData.data || [];
-    console.log(`📦 Citas cargadas: ${citas.length}`);
   }
-
-  // Obtener disponibilidades
-  const disponiblesResponse = await fetch(
-    `${STRAPI_URL}/api/disponibles?populate=*&sort=fecha:desc`,
+  const mascotasResponse = await fetch(`${STRAPI_URL}/api/mascotas?populate=dueno`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  if (mascotasResponse.ok) {
+    const mascotasData = await mascotasResponse.json();
+    mascotas = mascotasData.data || [];
+    console.log('Mascotas obtenidas:', mascotas.length, mascotas);
+  }
+  const disponiblesResponse = await fetch(`${STRAPI_URL}/api/disponibles?populate=*&sort=fecha:desc`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  if (disponiblesResponse.ok) {
+    const disponiblesData = await disponiblesResponse.json();
+    disponibilidades = disponiblesData.data || [];
+  }
+  
+  // Obtener notificaciones del recepcionista
+  const notificacionesResponse = await fetch(
+    `${STRAPI_URL}/api/notificacions?filters[destinatario][$eq]=Recepcionista&populate=*&sort=createdAt:desc`,
     {
       headers: { Authorization: `Bearer ${jwt}` },
     }
   );
-
-  if (disponiblesResponse.ok) {
-    const disponiblesData = await disponiblesResponse.json();
-    disponibilidades = disponiblesData.data || [];
-    console.log(`📦 Disponibilidades cargadas: ${disponibilidades.length}`);
+  if (notificacionesResponse.ok) {
+    const notificacionesData = await notificacionesResponse.json();
+    notificaciones = notificacionesData.data || [];
   }
 
+  // Obtener todos los usuarios para agendar citas
+  const usuariosResponse = await fetch(`${STRAPI_URL}/api/users?populate=role`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  if (usuariosResponse.ok) {
+    const usuariosData = await usuariosResponse.json();
+    console.log('Todos los usuarios:', usuariosData);
+    
+    // Filtrar solo clientes (buscar por rol ID o nombre de rol)
+    clientes = usuariosData.filter(u => {
+      const roleId = u.role?.id;
+      const roleName = u.role?.name?.toLowerCase() || '';
+      const username = u.username?.toLowerCase() || '';
+      const email = u.email?.toLowerCase() || '';
+      
+      // Role ID 8 es Cliente, o buscar "cliente" en username/email si no hay role
+      const isCliente = roleId === 8 || 
+                       roleName.includes('cliente') || 
+                       (username.includes('cliente') && !username.includes('veterinario') && !username.includes('recepcionista')) ||
+                       (email.includes('cliente') && !email.includes('veterinario') && !email.includes('recepcionista'));
+      
+      const notVetOrRecep = !roleName.includes('veterinario') && 
+                           !roleName.includes('recepcionista') &&
+                           !username.includes('veterinario') &&
+                           !username.includes('recepcionista');
+      
+      return isCliente || (roleId && roleId === 8) || (notVetOrRecep && roleId !== 9 && roleId !== 10);
+    });
+    
+    console.log(`Clientes filtrados: ${clientes.length}`, clientes);
+  }
 } catch (error) {
-  console.error("💥 Error verificando usuario:", error);
+  console.error('Error al cargar datos:', error);
   return Astro.redirect("/login");
 }
 import '../styles/dashboard_recepcionista.css';
@@ -82,202 +94,1067 @@ import '../styles/dashboard_recepcionista.css';
 
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard Recepcionista - Veterinaria Pochita</title>
-  </head>
-  <body>
-    <header>
-      <div class="header-content">
-        <a href="/" class="brand-link">
-          <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
-          <h1>Dashboard Recepcionista</h1>
-        </a>
-        <div class="header-actions">
-          <span class="username">👤 {userData.username}</span>
-          <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
-        </div>
-      </div>
-    </header>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Recepcionista - Veterinaria Pochita</title>
+  <style>
+    /* Estilos para notificaciones */
+    .notifications-container {
+      position: relative;
+      margin-right: 20px;
+    }
 
-    <div class="container">
-      <div class="welcome">
-        <h2>Bienvenido, {userData.username} 👋</h2>
-        <p>Gestiona las citas y disponibilidad de los veterinarios</p>
-      </div>
+    .btn-notifications {
+      background: #ff9800;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 20px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
 
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3>Total Citas</h3>
-          <div class="number">{citas.length}</div>
-        </div>
-        <div class="stat-card">
-          <h3>Citas Pendientes</h3>
-          <div class="number">
-            {citas.filter((c) => c.estado === "pendiente").length}
-          </div>
-        </div>
-        <div class="stat-card">
-          <h3>Citas Confirmadas</h3>
-          <div class="number">
-            {citas.filter((c) => c.estado === "confirmada").length}
-          </div>
-        </div>
-        <div class="stat-card">
-          <h3>Disponibilidades</h3>
-          <div class="number">{disponibilidades.length}</div>
-        </div>
-      </div>
+    .btn-notifications:hover {
+      background: #f57c00;
+      transform: scale(1.1);
+    }
 
-      <div class="section-header">
-        <h2>Citas Programadas</h2>
-        <button class="btn-add" id="btnAgendarCita">+ Agendar Cita</button>
-      </div>
+    .notification-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #f44336;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 12px;
+      font-weight: bold;
+      min-width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-      {citas.length === 0 ? (
-        <div class="empty-state">
-          <p>No hay citas registradas todavía</p>
-        </div>
-      ) : (
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Cliente</th>
-                <th>Mascota</th>
-                <th>Veterinario</th>
-                <th>Motivo</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {citas.map((cita) => (
-                <tr>
-                  <td>{cita.fecha || "N/A"}</td>
-                  <td>{cita.hora || "N/A"}</td>
-                  <td>{cita.cliente?.username || "N/A"}</td>
-                  <td>{cita.mascota?.nombre || "N/A"}</td>
-                  <td>{cita.veterinario?.username || "N/A"}</td>
-                  <td>{cita.motivo || "N/A"}</td>
-                  <td>
-                    <span class={`badge badge-${cita.estado || "pendiente"}`}>
-                      {cita.estado || "pendiente"}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="actions">
-                      {cita.estado === "pendiente" && (
-                        <button
-                          class="btn-action btn-confirm"
-                          data-id={cita.documentId}
-                        >
-                          Confirmar
-                        </button>
+    .notifications-panel {
+      position: absolute;
+      top: 60px;
+      right: 0;
+      width: 400px;
+      max-height: 500px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    .notifications-panel.active {
+      display: flex;
+    }
+
+    .notifications-header {
+      padding: 15px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .notifications-header h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #333;
+    }
+
+    .btn-mark-all-read {
+      background: none;
+      border: none;
+      color: #ff9800;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: underline;
+    }
+
+    .btn-mark-all-read:hover {
+      color: #f57c00;
+    }
+
+    .notifications-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .notification-empty {
+      padding: 40px;
+      text-align: center;
+      color: #999;
+    }
+
+    .notification-item {
+      padding: 15px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: background 0.2s;
+    }
+
+    .notification-item:hover {
+      background: #f9f9f9;
+    }
+
+    .notification-item.no-leida {
+      background: #fff3e0;
+    }
+
+    .notification-item.no-leida:hover {
+      background: #ffe0b2;
+    }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .notification-message {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    .notification-time {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .btn-mark-read {
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-left: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn-mark-read:hover {
+      background: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="/" class="brand-link">
+        <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
+        <h1>Dashboard Recepcionista</h1>
+      </a>
+      <div class="header-actions">
+        <!-- Notificaciones -->
+        <div class="notifications-container">
+          <button class="btn-notifications" id="btnNotificaciones">
+            🔔
+            {notificaciones.filter(n => !(n.leida || n.attributes?.leida)).length > 0 && (
+              <span class="notification-badge">
+                {notificaciones.filter(n => !(n.leida || n.attributes?.leida)).length}
+              </span>
+            )}
+          </button>
+          <div class="notifications-panel" id="panelNotificaciones">
+            <div class="notifications-header">
+              <h3>Notificaciones</h3>
+              <button class="btn-mark-all-read" id="btnMarcarTodasLeidas">Marcar todas como leídas</button>
+            </div>
+            <div class="notifications-list">
+              {notificaciones.length === 0 ? (
+                <div class="notification-empty">No tienes notificaciones</div>
+              ) : (
+                notificaciones.map((notifRaw) => {
+                  const notif = notifRaw.attributes || notifRaw;
+                  const isLeida = notif.leida || false;
+                  return (
+                    <div class={`notification-item ${isLeida ? 'leida' : 'no-leida'}`} data-id={notifRaw.id}>
+                      <div class="notification-content">
+                        <div class="notification-title">{notif.tipo || 'Notificación'}</div>
+                        <div class="notification-message">{notif.mensaje || 'Sin mensaje'}</div>
+                        <div class="notification-time">
+                          {notif.createdAt ? new Date(notif.createdAt).toLocaleString('es-ES') : 'N/D'}
+                        </div>
+                      </div>
+                      {!isLeida && (
+                        <button class="btn-mark-read" onclick={`marcarComoLeida(${notifRaw.id})`}>✓</button>
                       )}
-                      <button
-                        class="btn-action btn-cancel"
-                        data-id={cita.documentId}
-                      >
-                        Cancelar
-                      </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
-      )}
+        <span class="username">{userData.username}</span>
+        <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="welcome">
+      <h2>Bienvenido, {userData.username}</h2>
+      <p>Gestiona las citas y fichas médicas de las mascotas</p>
     </div>
 
-    <script>
-      document.getElementById("btnCerrarSesion")?.addEventListener("click", async () => {
+    <div class="tabs">
+      <button class="tab active" data-tab="citas">Citas</button>
+      <button class="tab" data-tab="disponibilidades">Horarios</button>
+      <button class="tab" data-tab="fichas">Fichas Médicas</button>
+    </div>
+
+<!-- TAB CITAS -->
+<div class="tab-content active" id="citas">
+  <div class="section-header">
+    <h3>Gestión de Citas</h3>
+    <button class="btn-primary" id="btnNuevaCita">Nueva Cita</button>
+  </div>
+  {citas.length === 0 ? (
+    <div class="empty-state">
+      <p>No hay citas programadas</p>
+      <button class="btn-primary" id="btnNuevaCita2">Crear primera cita</button>
+    </div>
+  ) : (
+    <>
+      <div class="cards-grid">
+        {citas.map((citaRaw) => {
+          const cita = citaRaw.attributes || citaRaw;
+          const mascota = cita.mascota?.data?.attributes || cita.mascota;
+          const dueno = mascota?.dueno?.data?.attributes || mascota?.dueno || cita.cliente;
+          
+          return (
+          <div class="card" data-cita-id={citaRaw.id}>
+            <h4>Cita - {mascota?.nombre || 'Sin mascota'}</h4>
+            <div class="card-info">
+              <strong>Fecha:</strong> {cita.fecha ? new Date(cita.fecha).toLocaleDateString('es-ES') : 'N/A'}
+            </div>
+            <div class="card-info">
+              <strong>Hora:</strong> {cita.fecha ? new Date(cita.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+            </div>
+            <div class="card-info">
+              <strong>Mascota:</strong> {mascota?.nombre || 'N/A'}
+            </div>
+            <div class="card-info">
+              <strong>Dueño:</strong> {dueno?.username || 'N/A'}
+            </div>
+            <div class="card-info">
+              <strong>Estado:</strong>
+              <span class={`badge badge-${cita.estado?.toLowerCase() || 'pendiente'}`}>
+                {cita.estado || 'pendiente'}
+              </span>
+            </div>
+            {cita.motivo && (
+              <div class="card-info">
+                <strong>Motivo:</strong> {cita.motivo}
+              </div>
+            )}
+            {cita.estado === 'pendiente' && (
+              <div class="card-actions">
+                <button 
+                  class="btn-action btn-confirm" 
+                  data-id={citaRaw.id}
+                  onclick="confirmarCita(this)"
+                >
+                  Confirmar
+                </button>
+                <button 
+                  class="btn-action btn-cancel" 
+                  data-id={citaRaw.id}
+                  onclick="cancelarCita(this)"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+        )})}
+      </div>
+    </>
+  )}
+</div>
+
+<!-- TAB DISPONIBILIDADES (HU005 y HU006) -->
+<div class="tab-content" id="disponibilidades">
+  <div class="section-header">
+    <h3>Gestión de Horarios</h3>
+  </div>
+  {disponibilidades.length === 0 ? (
+    <div class="empty-state">
+      <p>No hay horarios registrados</p>
+    </div>
+  ) : (
+    <div class="cards-grid">
+      {disponibilidades.map((disp) => {
+        const dispId = disp.documentId || disp.id;
+        const attrs = disp.attributes || disp;
+        const vetData = attrs.veterinario || {};
+        return (
+        <div class="card" data-disp-id={dispId}>
+          <h4>Horario Disponible</h4>
+          <div class="card-info">
+            <strong>Fecha:</strong> {disp.fecha || attrs.fecha ? new Date(disp.fecha || attrs.fecha).toLocaleDateString('es-ES') : 'N/A'}
+          </div>
+          <div class="card-info">
+            <strong>Hora inicio:</strong> {disp.hora_inicio || attrs.hora_inicio || 'N/A'}
+          </div>
+          <div class="card-info">
+            <strong>Hora fin:</strong> {disp.hora_fin || attrs.hora_fin || 'N/A'}
+          </div>
+          <div class="card-info">
+            <strong>Veterinario:</strong> {vetData.username || 'N/A'}
+          </div>
+          <div class="card-info">
+            <strong>Cupos:</strong> {disp.cupos_disponibles || attrs.cupos_disponibles || 0} / {disp.cupos_totales || attrs.cupos_totales || 0}
+          </div>
+          <div class="card-actions">
+            <button 
+              class="btn-action btn-confirm" 
+              data-id={dispId}
+              onclick="editarHorario(this)"
+            >
+              Editar Horario
+            </button>
+            <button 
+              class="btn-action btn-cancel" 
+              data-id={dispId}
+              data-vet-id={vetData.id || vetData.documentId || ''}
+              onclick="cancelarHorario(this)"
+            >
+              Cancelar Horario
+            </button>
+          </div>
+        </div>
+      )})}
+    </div>
+  )}
+</div>
+
+<!-- TAB FICHAS MÉDICAS -->
+<div class="tab-content" id="fichas">
+  <div class="section-header">
+    <h3>Fichas Médicas</h3>
+  </div>
+  <div class="empty-state">
+    <p>Sección de fichas médicas en desarrollo</p>
+  </div>
+</div>
+
+  </div>
+
+  <!-- Modal para agendar cita -->
+  <div id="modalAgendarCita" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📅 Agendar Nueva Cita</h2>
+        <button class="modal-close" id="btnCerrarModalCita">&times;</button>
+      </div>
+      <form id="formAgendarCita">
+        <div class="form-group">
+          <label for="selectCliente">Cliente:</label>
+          <select id="selectCliente" required>
+            <option value="">Seleccione un cliente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="selectMascota">Mascota:</label>
+          <select id="selectMascota" required disabled>
+            <option value="">Primero seleccione un cliente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="selectDisponibilidad">Horario disponible:</label>
+          <select id="selectDisponibilidad" required>
+            <option value="">Seleccione un horario</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="inputMotivo">Motivo de la cita:</label>
+          <textarea id="inputMotivo" rows="3" placeholder="Ej: Control de rutina, vacunación, consulta..." required></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="btnCancelarModalCita">Cancelar</button>
+          <button type="submit" class="btn-primary">Agendar Cita</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Almacenar datos del servidor para uso en JavaScript -->
+  <script id="citas-data" type="application/json">{JSON.stringify(citas || [])}</script>
+  <script id="mascotas-data" type="application/json">{JSON.stringify(mascotas || [])}</script>
+  <script id="disponibilidades-data" type="application/json">{JSON.stringify(disponibilidades || [])}</script>
+  <script id="clientes-data" type="application/json">{JSON.stringify(clientes || [])}</script>
+
+  <script define:vars={{ clientesServer: clientes || [], disponibilidadesServer: disponibilidades || [], mascotasServer: mascotas || [] }}>
+    const STRAPI_URL = 'http://localhost:1337';
+    
+    // Log de datos del servidor
+    console.log('Datos del servidor:', {
+      clientes: clientesServer.length,
+      disponibilidades: disponibilidadesServer.length,
+      mascotas: mascotasServer.length
+    });
+    
+    // Cargar datos del servidor
+    let citasActuales = [];
+    let mascotasActuales = mascotasServer || [];
+    let disponibilidadesActuales = disponibilidadesServer || [];
+    let clientesActuales = clientesServer || [];
+    
+    try {
+      const citasEl = document.getElementById('citas-data');
+      citasActuales = citasEl && citasEl.textContent ? JSON.parse(citasEl.textContent) : [];
+      
+      const mascotasEl = document.getElementById('mascotas-data');
+      mascotasActuales = mascotasEl && mascotasEl.textContent ? JSON.parse(mascotasEl.textContent) : [];
+      
+      const dispEl = document.getElementById('disponibilidades-data');
+      disponibilidadesActuales = dispEl && dispEl.textContent ? JSON.parse(dispEl.textContent) : [];
+      
+      const clientesEl = document.getElementById('clientes-data');
+      if (clientesEl && clientesEl.textContent) {
         try {
-          const response = await fetch("/api/logout", {
-            method: "POST",
-          });
-
-          if (response.ok) {
-            window.location.href = "/login";
+          const clientesText = clientesEl.textContent.trim();
+          console.log('Raw clientes data:', clientesText);
+          if (clientesText && clientesText !== '[]' && clientesText !== '') {
+            clientesActuales = JSON.parse(clientesText);
           }
-        } catch (error) {
-          console.error("Error al cerrar sesión:", error);
-          alert("Error al cerrar sesión");
+        } catch (clientesError) {
+          console.error('❌ Error parsing clientes:', clientesError);
+          clientesActuales = [];
         }
+      }
+      
+      console.log('Datos cargados:', {
+        clientes: clientesActuales.length,
+        mascotas: mascotasActuales.length,
+        disponibilidades: disponibilidadesActuales.length
+      });
+      
+      // Log detallado de mascotas para debugging
+      if (mascotasActuales.length > 0) {
+        console.log('Ejemplo mascota:', mascotasActuales[0]);
+      }
+    } catch (e) {
+      console.error('Error al cargar datos:', e);
+    }
+
+    // Función auxiliar para obtener JWT
+    function getJWT() {
+      return document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+    }
+
+    // Sistema de notificaciones
+    const btnNotificaciones = document.getElementById('btnNotificaciones');
+    const panelNotificaciones = document.getElementById('panelNotificaciones');
+    const btnMarcarTodasLeidas = document.getElementById('btnMarcarTodasLeidas');
+
+    // Toggle panel de notificaciones
+    btnNotificaciones?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panelNotificaciones?.classList.toggle('active');
+    });
+
+    // Cerrar panel al hacer clic fuera
+    document.addEventListener('click', (e) => {
+      if (!panelNotificaciones?.contains(e.target) && e.target !== btnNotificaciones) {
+        panelNotificaciones?.classList.remove('active');
+      }
+    });
+
+    // Marcar notificación como leída
+    window.marcarComoLeida = async (notifId) => {
+      try {
+        const jwt = getJWT();
+        const response = await fetch(`${STRAPI_URL}/api/notificacions/${notifId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ data: { leida: true } }),
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Error al marcar notificación:', error);
+      }
+    };
+
+    // Marcar todas como leídas
+    btnMarcarTodasLeidas?.addEventListener('click', async () => {
+      try {
+        const jwt = getJWT();
+        const notificacionesNoLeidas = document.querySelectorAll('.notification-item.no-leida');
+        
+        for (const notif of notificacionesNoLeidas) {
+          const notifId = notif.dataset.id;
+          await fetch(`${STRAPI_URL}/api/notificacions/${notifId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({ data: { leida: true } }),
+          });
+        }
+        
+        window.location.reload();
+      } catch (error) {
+        console.error('Error al marcar todas como leídas:', error);
+      }
+    });
+
+    // Manejo de tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        
+        tab.classList.add('active');
+        const tabId = tab.getAttribute('data-tab');
+        document.getElementById(tabId)?.classList.add('active');
+      });
+    });
+
+    // Cerrar sesión
+    document.getElementById('btnCerrarSesion')?.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (response.ok) {
+          window.location.href = '/login';
+        } else {
+          alert('Error al cerrar sesión');
+        }
+      } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+        alert('Error al cerrar sesión');
+      }
+    });
+
+    // Función para verificar si una cita existe en el backend
+    async function verificarCitaExiste(citaId) {
+      try {
+        const jwt = getJWT();
+        const response = await fetch(`${STRAPI_URL}/api/citas/${citaId}?populate=*`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
+        });
+        return response.ok;
+      } catch (error) {
+        console.error('Error al verificar cita:', error);
+        return false;
+      }
+    }
+
+    // Confirmar cita
+    window.confirmarCita = async (btn) => {
+      const citaId = btn.dataset.id;
+      
+      if (!citaId) {
+        alert('ID de cita no válido');
+        return;
+      }
+
+      // Verificar que la cita existe antes de intentar confirmarla
+      const existe = await verificarCitaExiste(citaId);
+      if (!existe) {
+        alert('Esta cita ya no existe en el sistema. La página se actualizará.');
+        window.location.reload();
+        return;
+      }
+
+      if (!confirm('¿Seguro que quieres confirmar esta cita?')) return;
+
+      try {
+        const jwt = getJWT();
+        if (!jwt) {
+          alert('Sesión expirada. Por favor inicia sesión nuevamente.');
+          window.location.href = '/login';
+          return;
+        }
+
+        const response = await fetch(`${STRAPI_URL}/api/citas/${citaId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ data: { estado: 'confirmada' } }),
+        });
+
+        if (response.ok) {
+          alert('Cita confirmada correctamente.');
+          window.location.reload();
+        } else {
+          const errorData = await response.json();
+          console.error('Error del servidor:', errorData);
+          
+          if (response.status === 404) {
+            alert('Esta cita ya no existe. La página se actualizará.');
+          } else {
+            alert('Error al confirmar cita: ' + (errorData.error?.message || 'Error desconocido'));
+          }
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Error al confirmar cita:', error);
+        alert('Error de conexión: ' + error.message);
+      }
+    };
+
+    // Cancelar cita
+    window.cancelarCita = async (btn) => {
+      const citaId = btn.dataset.id;
+      
+      if (!citaId) {
+        alert('ID de cita no válido');
+        return;
+      }
+
+      // Verificar que la cita existe antes de intentar cancelarla
+      const existe = await verificarCitaExiste(citaId);
+      if (!existe) {
+        alert('Esta cita ya no existe en el sistema. La página se actualizará.');
+        window.location.reload();
+        return;
+      }
+
+      if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
+
+      try {
+        const jwt = getJWT();
+        if (!jwt) {
+          alert('Sesión expirada. Por favor inicia sesión nuevamente.');
+          window.location.href = '/login';
+          return;
+        }
+
+        const response = await fetch(`${STRAPI_URL}/api/citas/${citaId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ data: { estado: 'cancelada' } }),
+        });
+
+        if (response.ok) {
+          alert('Cita cancelada correctamente.');
+          window.location.reload();
+        } else {
+          const errorData = await response.json();
+          console.error('Error del servidor:', errorData);
+          
+          if (response.status === 404) {
+            alert('Esta cita ya no existe. La página se actualizará.');
+          } else {
+            alert('Error al cancelar cita: ' + (errorData.error?.message || 'Error desconocido'));
+          }
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Error al cancelar cita:', error);
+        alert('Error de conexión: ' + error.message);
+      }
+    };
+
+    // Botón nueva cita
+    document.getElementById('btnNuevaCita')?.addEventListener('click', abrirModalAgendarCita);
+    document.getElementById('btnNuevaCita2')?.addEventListener('click', abrirModalAgendarCita);
+
+    // Sistema de agendamiento de citas
+    const modalAgendarCita = document.getElementById('modalAgendarCita');
+    const formAgendarCita = document.getElementById('formAgendarCita');
+    const selectCliente = document.getElementById('selectCliente');
+    const selectMascota = document.getElementById('selectMascota');
+    const selectDisponibilidad = document.getElementById('selectDisponibilidad');
+
+    // Abrir modal de agendar cita
+    function abrirModalAgendarCita() {
+      modalAgendarCita.style.display = 'flex';
+      cargarClientes();
+      cargarDisponibilidades();
+    }
+
+    // Cerrar modal
+    function cerrarModalAgendarCita() {
+      modalAgendarCita.style.display = 'none';
+      formAgendarCita.reset();
+      selectMascota.disabled = true;
+      selectMascota.innerHTML = '<option value="">Primero seleccione un cliente</option>';
+    }
+
+    document.getElementById('btnCerrarModalCita')?.addEventListener('click', cerrarModalAgendarCita);
+    document.getElementById('btnCancelarModalCita')?.addEventListener('click', cerrarModalAgendarCita);
+    modalAgendarCita?.addEventListener('click', (e) => {
+      if (e.target === modalAgendarCita) cerrarModalAgendarCita();
+    });
+
+    // Cargar clientes en select
+    function cargarClientes() {
+      console.log('Cargando clientes...', clientesActuales);
+      selectCliente.innerHTML = '<option value="">Seleccione un cliente</option>';
+      
+      if (!clientesActuales || clientesActuales.length === 0) {
+        console.warn('No hay clientes disponibles');
+        selectCliente.innerHTML = '<option value="">No hay clientes registrados</option>';
+        return;
+      }
+      
+      clientesActuales.forEach(cliente => {
+        const option = document.createElement('option');
+        option.value = cliente.id;
+        option.textContent = `${cliente.username} (${cliente.email})`;
+        selectCliente.appendChild(option);
+      });
+      console.log(`${clientesActuales.length} clientes cargados`);
+    }
+
+    // Cargar mascotas según cliente seleccionado
+    selectCliente?.addEventListener('change', (e) => {
+      const clienteId = parseInt(e.target.value);
+      selectMascota.innerHTML = '<option value="">Seleccione una mascota</option>';
+      
+      console.log('Cliente seleccionado ID:', clienteId);
+      console.log('Mascotas disponibles:', mascotasActuales.length);
+      
+      if (!clienteId) {
+        selectMascota.disabled = true;
+        return;
+      }
+
+      // Filtrar mascotas del cliente
+      const mascotasDelCliente = mascotasActuales.filter(mascotaRaw => {
+        const mascota = mascotaRaw.attributes || mascotaRaw;
+        const dueno = mascota.dueno?.data || mascota.dueno;
+        const duenoId = dueno?.id;
+        console.log('  Mascota:', mascota.nombre, '- Dueño ID:', duenoId, '- Match:', duenoId === clienteId);
+        return duenoId === clienteId;
+      });
+      
+      console.log('Mascotas del cliente:', mascotasDelCliente.length);
+
+      if (mascotasDelCliente.length === 0) {
+        selectMascota.innerHTML = '<option value="">Este cliente no tiene mascotas registradas</option>';
+        selectMascota.disabled = true;
+        return;
+      }
+
+      mascotasDelCliente.forEach(mascotaRaw => {
+        const mascota = mascotaRaw.attributes || mascotaRaw;
+        const option = document.createElement('option');
+        option.value = mascotaRaw.id || mascotaRaw.documentId;
+        option.textContent = `${mascota.nombre} (${mascota.especie || 'N/A'})`;
+        selectMascota.appendChild(option);
+      });
+      selectMascota.disabled = false;
+    });
+
+    // Cargar disponibilidades en select
+    function cargarDisponibilidades() {
+      console.log('Cargando disponibilidades...', disponibilidadesActuales);
+      selectDisponibilidad.innerHTML = '<option value="">Seleccione un horario</option>';
+      
+      // Filtrar solo disponibilidades futuras con cupos
+      const ahora = new Date();
+      const disponiblesValidos = disponibilidadesActuales.filter(dispRaw => {
+        const disp = dispRaw.attributes || dispRaw;
+        const fecha = new Date(disp.fecha);
+        const cuposDisponibles = disp.cupos_disponibles || 0;
+        return fecha >= ahora && cuposDisponibles > 0;
       });
 
-      // Confirmar cita
-      document.querySelectorAll(".btn-confirm").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
-          const citaId = e.target.getAttribute("data-id");
-          if (!citaId) return;
+      console.log(`Disponibilidades válidas: ${disponiblesValidos.length} de ${disponibilidadesActuales.length}`);
 
+      if (disponiblesValidos.length === 0) {
+        selectDisponibilidad.innerHTML = '<option value="">No hay horarios disponibles</option>';
+        console.warn('No hay horarios disponibles con cupos');
+        return;
+      }
+
+      disponiblesValidos.forEach(dispRaw => {
+        const disp = dispRaw.attributes || dispRaw;
+        const fecha = new Date(disp.fecha).toLocaleDateString('es-ES');
+        const vet = disp.veterinario;
+        const vetNombre = vet?.username || 'Veterinario';
+        const option = document.createElement('option');
+        option.value = dispRaw.documentId || dispRaw.id;
+        option.textContent = `${fecha} ${disp.hora_inicio} - Dr. ${vetNombre} (${disp.cupos_disponibles} cupos)`;
+        selectDisponibilidad.appendChild(option);
+      });
+      console.log(`${disponiblesValidos.length} horarios cargados`);
+    }
+
+    // Enviar formulario de agendar cita
+    formAgendarCita?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const clienteId = parseInt(selectCliente.value);
+      const mascotaId = selectMascota.value;
+      const disponibilidadId = selectDisponibilidad.value;
+      const motivo = document.getElementById('inputMotivo').value;
+
+      if (!clienteId || !mascotaId || !disponibilidadId || !motivo) {
+        alert('Por favor complete todos los campos');
+        return;
+      }
+
+      try {
+        const jwt = getJWT();
+        if (!jwt) {
+          alert('Sesión expirada');
+          window.location.href = '/login';
+          return;
+        }
+
+        // Obtener datos de la disponibilidad seleccionada
+        const disponibilidad = disponibilidadesActuales.find(d => 
+          (d.documentId || d.id) === disponibilidadId
+        );
+        const dispAttrs = disponibilidad.attributes || disponibilidad;
+        const fechaCita = new Date(dispAttrs.fecha);
+        const veterinarioId = dispAttrs.veterinario?.id;
+
+        // Crear la cita
+        const response = await fetch(`${STRAPI_URL}/api/citas`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            data: {
+              fecha: fechaCita.toISOString(),
+              motivo: motivo,
+              estado: 'pendiente',
+              cliente: clienteId,
+              mascota: mascotaId,
+              veterinario: veterinarioId,
+              publishedAt: new Date().toISOString()
+            }
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Error al crear cita');
+        }
+
+        // Actualizar cupos de la disponibilidad
+        const cuposActuales = dispAttrs.cupos_disponibles || 0;
+        if (cuposActuales > 0) {
+          await fetch(`${STRAPI_URL}/api/disponibles/${disponibilidadId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              data: {
+                cupos_disponibles: cuposActuales - 1
+              }
+            }),
+          });
+        }
+
+        alert('Cita agendada correctamente.');
+        cerrarModalAgendarCita();
+        window.location.reload();
+      } catch (error) {
+        console.error('Error al agendar cita:', error);
+        alert('Error al agendar cita: ' + error.message);
+      }
+    });
+
+    // HU005: Cancelar horario y notificar al veterinario
+    window.cancelarHorario = async (btn) => {
+      const horarioId = btn.dataset.id;
+      const vetId = btn.dataset.vetId;
+      
+      if (!horarioId) {
+        alert('ID de horario no válido');
+        return;
+      }
+
+      if (!confirm('¿Seguro que quieres cancelar este horario? Se notificará al veterinario.')) return;
+
+      try {
+        const jwt = getJWT();
+        if (!jwt) {
+          alert('Sesión expirada');
+          window.location.href = '/login';
+          return;
+        }
+
+        // Obtener detalles del horario usando documentId
+        const horarioResponse = await fetch(`${STRAPI_URL}/api/disponibles/${horarioId}?populate=*`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
+        });
+        
+        if (!horarioResponse.ok) {
+          alert('No se pudo obtener el horario');
+          return;
+        }
+        
+        const horarioData = await horarioResponse.json();
+        const horario = horarioData.data || horarioData;
+        const fecha = horario.fecha || horario.attributes?.fecha;
+        const horaInicio = horario.hora_inicio || horario.attributes?.hora_inicio;
+        const veterinarioData = horario.veterinario || horario.attributes?.veterinario;
+        const veterinarioId = veterinarioData?.id || veterinarioData?.documentId;
+
+        // Eliminar el horario usando documentId
+        const deleteResponse = await fetch(`${STRAPI_URL}/api/disponibles/${horarioId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+          },
+        });
+
+        if (!deleteResponse.ok) {
+          alert('Error al cancelar horario');
+          return;
+        }
+
+        // HU005: Crear notificación para el veterinario
+        if (veterinarioId) {
           try {
-            const response = await fetch(`http://localhost:1337/api/citas/${citaId}`, {
-              method: "PUT",
+            const mensaje = `Tu horario del ${new Date(fecha).toLocaleDateString('es-ES')} a las ${horaInicio} ha sido cancelado por recepción.`;
+            
+            await fetch(`${STRAPI_URL}/api/notificacions`, {
+              method: 'POST',
               headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${document.cookie.split("jwt=")[1]?.split(";")[0]}`,
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt}`,
               },
               body: JSON.stringify({
-                data: { estado: "confirmada" },
+                data: {
+                  mensaje: mensaje,
+                  tipo: 'cancelacion',
+                  leida: false,
+                  users_permissions_user: veterinarioId
+                }
               }),
             });
-
-            if (response.ok) {
-              alert("Cita confirmada exitosamente");
-              window.location.reload();
-            } else {
-              alert("Error al confirmar la cita");
-            }
-          } catch (error) {
-            console.error("Error:", error);
-            alert("Error al confirmar la cita");
+            console.log('Notificación enviada al veterinario');
+          } catch (err) {
+            console.error('Error al crear notificación:', err);
           }
+        }
+
+        alert('Horario cancelado correctamente. Se ha notificado al veterinario.');
+        window.location.reload();
+        
+      } catch (error) {
+        console.error('Error al cancelar horario:', error);
+        alert('Error de conexión');
+      }
+    };
+
+    // HU006: Editar horario (replanificar)
+    window.editarHorario = async (btn) => {
+      const horarioId = btn.dataset.id;
+      
+      if (!horarioId) {
+        alert('ID de horario no válido');
+        return;
+      }
+
+      try {
+        const jwt = getJWT();
+        if (!jwt) {
+          alert('Sesión expirada');
+          window.location.href = '/login';
+          return;
+        }
+
+        // Obtener horario actual usando documentId
+        const horarioResponse = await fetch(`${STRAPI_URL}/api/disponibles/${horarioId}?populate=*`, {
+          headers: { 'Authorization': `Bearer ${jwt}` }
         });
-      });
-
-      // Cancelar cita
-      document.querySelectorAll(".btn-cancel").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
-          const citaId = e.target.getAttribute("data-id");
-          if (!citaId) return;
-
-          if (!confirm("¿Estás seguro de cancelar esta cita?")) return;
-
-          try {
-            const response = await fetch(`http://localhost:1337/api/citas/${citaId}`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${document.cookie.split("jwt=")[1]?.split(";")[0]}`,
-              },
-              body: JSON.stringify({
-                data: { estado: "cancelada" },
-              }),
-            });
-
-            if (response.ok) {
-              alert("Cita cancelada exitosamente");
-              window.location.reload();
-            } else {
-              alert("Error al cancelar la cita");
+        
+        if (!horarioResponse.ok) {
+          alert('No se pudo obtener el horario');
+          return;
+        }
+        
+        const horarioData = await horarioResponse.json();
+        const horario = horarioData.data || horarioData;
+        
+        // Solicitar nueva fecha
+        const nuevaFecha = prompt('Nueva fecha (YYYY-MM-DD):', horario.fecha || horario.attributes?.fecha);
+        if (!nuevaFecha) return;
+        
+        // Solicitar nueva hora inicio
+        const nuevaHoraInicio = prompt('Nueva hora inicio (HH:MM):', horario.hora_inicio || horario.attributes?.hora_inicio);
+        if (!nuevaHoraInicio) return;
+        
+        // Solicitar nueva hora fin
+        const nuevaHoraFin = prompt('Nueva hora fin (HH:MM):', horario.hora_fin || horario.attributes?.hora_fin);
+        if (!nuevaHoraFin) return;
+        
+        // Actualizar horario usando documentId
+        const updateResponse = await fetch(`${STRAPI_URL}/api/disponibles/${horarioId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            data: {
+              fecha: nuevaFecha,
+              hora_inicio: nuevaHoraInicio,
+              hora_fin: nuevaHoraFin
             }
-          } catch (error) {
-            console.error("Error:", error);
-            alert("Error al cancelar la cita");
-          }
+          }),
         });
-      });
 
-      // Agendar cita (placeholder)
-      document.getElementById("btnAgendarCita")?.addEventListener("click", () => {
-        alert("Funcionalidad de agendar cita próximamente");
-      });
-    </script>
-  </body>
+        if (updateResponse.ok) {
+          alert('Horario actualizado correctamente.');
+          window.location.reload();
+        } else {
+          const errorData = await updateResponse.json();
+          alert('Error al actualizar horario: ' + (errorData.error?.message || 'Error desconocido'));
+        }
+        
+      } catch (error) {
+        console.error('Error al editar horario:', error);
+        alert('Error de conexión');
+      }
+    };
+
+    // Log de depuración
+    console.log('Dashboard cargado con:', {
+      citas: citasActuales.length,
+      mascotas: mascotasActuales.length,
+      disponibilidades: disponibilidadesActuales.length,
+      citasIds: citasActuales.map(c => c.id),
+      disponibilidadesData: disponibilidadesActuales
+    });
+  </script>
+</body>
 </html>

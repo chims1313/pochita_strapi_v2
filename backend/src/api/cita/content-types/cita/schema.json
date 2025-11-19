@@ -39,13 +39,19 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "citas_como_veterinario"
+      "inversedBy": "cita"
     },
     "users_permissions_user": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
       "inversedBy": "cliente"
+    },
+    "mascota": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::mascota.mascota",
+      "inversedBy": "citas"
     }
   }
 }

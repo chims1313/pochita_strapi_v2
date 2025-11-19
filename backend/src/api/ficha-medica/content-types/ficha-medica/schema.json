@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "ficha_medicas",
+  "info": {
+    "singularName": "ficha-medica",
+    "pluralName": "ficha-medicas",
+    "displayName": "Ficha_Medica"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "mascota": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::mascota.mascota",
+      "inversedBy": "ficha_medicas"
+    },
+    "peso_actual": {
+      "type": "decimal"
+    },
+    "temperatura": {
+      "type": "decimal"
+    },
+    "diagnostico": {
+      "type": "text",
+      "required": true
+    },
+    "tratamiento": {
+      "type": "text",
+      "required": true
+    },
+    "medicamentos": {
+      "type": "text",
+      "required": true
+    },
+    "proxima_visita": {
+      "type": "date"
+    },
+    "veterinario": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "ficha_medicas"
+    },
+    "observaciones": {
+      "type": "text",
+      "required": true
+    }
+  }
+}

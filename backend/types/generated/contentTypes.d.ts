@@ -455,6 +455,7 @@ export interface ApiCitaCita extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'> &
       Schema.Attribute.Private;
+    mascota: Schema.Attribute.Relation<'manyToOne', 'api::mascota.mascota'>;
     motivo: Schema.Attribute.Text;
     notas_veterinario: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
@@ -508,6 +509,45 @@ export interface ApiDisponibleDisponible extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFichaMedicaFichaMedica extends Struct.CollectionTypeSchema {
+  collectionName: 'ficha_medicas';
+  info: {
+    displayName: 'Ficha_Medica';
+    pluralName: 'ficha-medicas';
+    singularName: 'ficha-medica';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    diagnostico: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::ficha-medica.ficha-medica'
+    > &
+      Schema.Attribute.Private;
+    mascota: Schema.Attribute.Relation<'manyToOne', 'api::mascota.mascota'>;
+    medicamentos: Schema.Attribute.Text & Schema.Attribute.Required;
+    observaciones: Schema.Attribute.Text & Schema.Attribute.Required;
+    peso_actual: Schema.Attribute.Decimal;
+    proxima_visita: Schema.Attribute.Date;
+    publishedAt: Schema.Attribute.DateTime;
+    temperatura: Schema.Attribute.Decimal;
+    tratamiento: Schema.Attribute.Text & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    veterinario: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
   collectionName: 'mascotas';
   info: {
@@ -519,6 +559,7 @@ export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    citas: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -529,6 +570,10 @@ export interface ApiMascotaMascota extends Struct.CollectionTypeSchema {
     edad: Schema.Attribute.Integer & Schema.Attribute.Required;
     especie: Schema.Attribute.Enumeration<
       ['Perro', 'Gato', 'Ave', 'Conejo', 'Hamster', 'Reptil', 'Otro']
+    >;
+    ficha_medicas: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::ficha-medica.ficha-medica'
     >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -562,6 +607,9 @@ export interface ApiNotificacionNotificacion
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    destinatario: Schema.Attribute.Enumeration<
+      ['Recepcionista', 'Veterinario', 'Cliente']
+    >;
     leida: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -569,16 +617,14 @@ export interface ApiNotificacionNotificacion
       'api::notificacion.notificacion'
     > &
       Schema.Attribute.Private;
-    mensaje: Schema.Attribute.Text;
+    mensaje: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
-    tipo: Schema.Attribute.Enumeration<['info', 'alerta', 'cancelacion']>;
+    tipo: Schema.Attribute.Enumeration<
+      ['Horario Cancelado', 'Cita Agendada', 'Cita Cancelada']
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    users_permissions_user: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
   };
 }
 
@@ -1040,11 +1086,8 @@ export interface PluginUsersPermissionsUser
   };
   attributes: {
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    cita: Schema.Attribute.Relation<'oneToMany', 'api::cita.cita'>;
     citas_como_cliente: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::cita.cita'
-    >;
-    citas_como_veterinario: Schema.Attribute.Relation<
       'oneToMany',
       'api::cita.cita'
     >;
@@ -1063,6 +1106,10 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    ficha_medicas: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::ficha-medica.ficha-medica'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1070,10 +1117,6 @@ export interface PluginUsersPermissionsUser
     > &
       Schema.Attribute.Private;
     mascotas: Schema.Attribute.Relation<'oneToMany', 'api::mascota.mascota'>;
-    notificacions: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::notificacion.notificacion'
-    >;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1111,6 +1154,7 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::cita.cita': ApiCitaCita;
       'api::disponible.disponible': ApiDisponibleDisponible;
+      'api::ficha-medica.ficha-medica': ApiFichaMedicaFichaMedica;
       'api::mascota.mascota': ApiMascotaMascota;
       'api::notificacion.notificacion': ApiNotificacionNotificacion;
       'plugin::content-releases.release': PluginContentReleasesRelease;

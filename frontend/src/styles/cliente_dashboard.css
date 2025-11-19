@@ -410,3 +410,91 @@ header {
     grid-template-columns: 1fr;
   }
 }
+
+/* Estilos para Citas */
+.citas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.cita-card {
+  background: rgba(45, 45, 45, 0.9);
+  border: 2px solid rgba(243, 156, 18, 0.3);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.cita-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(243, 156, 18, 0.2);
+  border-color: rgba(243, 156, 18, 0.6);
+}
+
+.cita-card.cita-confirmada {
+  border-color: rgba(46, 204, 113, 0.5);
+}
+
+.cita-card.cita-cancelada {
+  border-color: rgba(231, 76, 60, 0.5);
+  opacity: 0.7;
+}
+
+.cita-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(243, 156, 18, 0.2);
+}
+
+.cita-fecha {
+  font-weight: 600;
+  color: #f39c12;
+  font-size: 1rem;
+}
+
+.badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-pendiente {
+  background: rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+  border: 1px solid rgba(241, 196, 15, 0.4);
+}
+
+.badge-confirmada {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+
+.badge-cancelada {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.4);
+}
+
+.cita-info {
+  margin-bottom: 0.5rem;
+  color: #e0e0e0;
+}
+
+.cita-info strong {
+  color: #f39c12;
+  margin-right: 0.5rem;
+}
+
+.cita-card .btn-delete {
+  margin-top: 1rem;
+  width: 100%;
+}

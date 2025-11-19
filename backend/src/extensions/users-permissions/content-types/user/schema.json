@@ -72,7 +72,7 @@
       "target": "api::cita.cita",
       "mappedBy": "cliente"
     },
-    "citas_como_veterinario": {
+    "cita": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::cita.cita",
@@ -83,12 +83,6 @@
       "relation": "oneToMany",
       "target": "api::disponible.disponible",
       "mappedBy": "veterinario"
-    },
-    "notificacions": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::notificacion.notificacion",
-      "mappedBy": "users_permissions_user"
     },
     "cliente": {
       "type": "relation",
@@ -101,6 +95,12 @@
       "relation": "oneToMany",
       "target": "api::mascota.mascota",
       "mappedBy": "dueno"
+    },
+    "ficha_medicas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::ficha-medica.ficha-medica",
+      "mappedBy": "veterinario"
     }
   }
 }

@@ -1,80 +1,42 @@
 ---
 const STRAPI_URL = "http://localhost:1337";
-
-// Verificación de autenticación
 const jwt = Astro.cookies.get("jwt")?.value;
+if (!jwt) return Astro.redirect("/login");
 
-if (!jwt) {
-  console.log("❌ No hay JWT - Redirigiendo a login");
-  return Astro.redirect("/login");
-}
-
-let userData;
-let citas = [];
-let disponibilidades = [];
+let userData, citas = [], disponibilidades = [];
 
 try {
-  // Obtener datos del usuario con rol
-  const userResponse = await fetch(`${STRAPI_URL}/api/users/me`, {
-    headers: { Authorization: `Bearer ${jwt}` },
-  });
-
+  const userResponse = await fetch(`${STRAPI_URL}/api/users/me?populate=role`, { headers: { Authorization: `Bearer ${jwt}` } });
   if (!userResponse.ok) {
-    console.log("❌ JWT inválido - Redirigiendo a login");
     Astro.cookies.delete("jwt", { path: "/" });
     return Astro.redirect("/login");
   }
-
   userData = await userResponse.json();
-  console.log("✅ Usuario autenticado:", userData.username, "| Rol:", userData.role?.name);
-
-  // Verificar que el usuario tiene rol de Veterinario
   const roleName = userData.role?.name?.toLowerCase() || "";
-  
   if (!roleName.includes("veterinario")) {
-    console.log("⚠️ Usuario no autorizado para este dashboard - Rol:", roleName);
-    
-    if (roleName.includes("recepcionista")) {
-      return Astro.redirect("/dashboard_recepcionista");
-    } else if (roleName.includes("cliente")) {
-      return Astro.redirect("/cliente_dashboard");
-    } else {
-      return Astro.redirect("/login");
-    }
+    if (roleName.includes("recepcionista")) return Astro.redirect("/dashboard_recepcionista");
+    if (roleName.includes("cliente")) return Astro.redirect("/cliente_dashboard");
+    return Astro.redirect("/login");
   }
 
-  console.log("✅ Acceso autorizado a dashboard veterinario");
-
-  // Obtener citas del veterinario
   const citasResponse = await fetch(
-    `${STRAPI_URL}/api/citas?filters[veterinario][id][$eq]=${userData.id}&populate=*&sort=fecha:desc`,
-    {
-      headers: { Authorization: `Bearer ${jwt}` },
-    }
+    `${STRAPI_URL}/api/citas?populate=*&sort=fecha:desc`,
+    { headers: { Authorization: `Bearer ${jwt}` } }
   );
-
   if (citasResponse.ok) {
     const citasData = await citasResponse.json();
     citas = citasData.data || [];
-    console.log(`📦 Citas cargadas: ${citas.length}`);
   }
 
-  // Obtener disponibilidades del veterinario
   const disponiblesResponse = await fetch(
     `${STRAPI_URL}/api/disponibles?filters[veterinario][id][$eq]=${userData.id}&populate=*&sort=fecha:desc`,
-    {
-      headers: { Authorization: `Bearer ${jwt}` },
-    }
+    { headers: { Authorization: `Bearer ${jwt}` } }
   );
-
   if (disponiblesResponse.ok) {
     const disponiblesData = await disponiblesResponse.json();
     disponibilidades = disponiblesData.data || [];
-    console.log(`📦 Disponibilidades cargadas: ${disponibilidades.length}`);
   }
-
 } catch (error) {
-  console.error("💥 Error verificando usuario:", error);
   return Astro.redirect("/login");
 }
 import '../styles/dashboard_veterinario.css';
@@ -82,250 +44,379 @@ import '../styles/dashboard_veterinario.css';
 
 <!DOCTYPE html>
 <html lang="es">
-    <title>Dashboard Veterinario - Veterinaria Pochita</title>
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Veterinario - Veterinaria Pochita</title>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <a href="/" class="brand-link">
+        <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
+        <h1>Dashboard Veterinario</h1>
+      </a>
+      <div class="header-actions">
+        <span class="username">👤 {userData.username}</span>
+        <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+  <div class="container">
+    <div class="welcome">
+      <h2>Bienvenido, Dr. {userData.username} 👋</h2>
+      <p>Gestiona tus citas y disponibilidad</p>
+    </div>
 
-      .appointment-time {
-        color: #f39c12;
-        font-weight: 600;
-        font-size: 1.1rem;
-      }
-
-      .appointment-info {
-        color: #d0d0d0;
-        margin-bottom: 0.3rem;
-        font-size: 0.95rem;
-      }
-
-      .appointment-info strong {
-        color: #ffffff;
-      }
-
-      .disponibilidad-item {
-        background: rgba(30, 30, 30, 0.5);
-        padding: 1rem;
-        border-radius: 10px;
-        margin-bottom: 1rem;
-        border-left: 4px solid #2ecc71;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .disponibilidad-item:last-child {
-        margin-bottom: 0;
-      }
-
-      .disponibilidad-info {
-        flex: 1;
-      }
-
-      .disponibilidad-fecha {
-        color: #2ecc71;
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0.3rem;
-      }
-
-      .disponibilidad-horario {
-        color: #d0d0d0;
-        font-size: 0.95rem;
-      }
-
-      .disponibilidad-cupos {
-        color: #b0b0b0;
-        font-size: 0.85rem;
-        margin-top: 0.3rem;
-      }
-
-      .badge {
-        display: inline-block;
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-      }
-
-      .badge-pendiente {
-        background: rgba(241, 196, 15, 0.2);
-        color: #f1c40f;
-        border: 1px solid rgba(241, 196, 15, 0.5);
-      }
-
-      .badge-confirmada {
-        background: rgba(46, 204, 113, 0.2);
-        color: #2ecc71;
-        border: 1px solid rgba(46, 204, 113, 0.5);
-      }
-
-      .badge-cancelada {
-        background: rgba(231, 76, 60, 0.2);
-        color: #e74c3c;
-        border: 1px solid rgba(231, 76, 60, 0.5);
-      }
-
-      .badge-completada {
-        background: rgba(52, 152, 219, 0.2);
-        color: #3498db;
-        border: 1px solid rgba(52, 152, 219, 0.5);
-      }
-
-      .btn-delete {
-        background: rgba(231, 76, 60, 0.9);
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-      }
-
-      .btn-delete:hover {
-        background: rgba(231, 76, 60, 1);
-        transform: translateY(-2px);
-      }
-
-      .empty-state {
-        text-align: center;
-        padding: 2rem;
-        color: #b0b0b0;
-        font-style: italic;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="header-content">
-        <a href="/" class="brand-link">
-          <img src="/pochita-logo.png" alt="Pochita" class="logo-img-small" />
-          <h1>Dashboard Veterinario</h1>
-        </a>
-        <div class="header-actions">
-          <span class="username">👤 {userData.username}</span>
-          <button id="btnCerrarSesion" class="btn-logout">Cerrar sesión</button>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Citas Totales</h3>
+        <div class="number">{citas.length}</div>
+      </div>
+      <div class="stat-card">
+        <h3>Citas Pendientes</h3>
+        <div class="number">
+          {citas.filter(c => (c.estado || c.attributes?.estado) === "pendiente").length}
         </div>
       </div>
-    </header>
-
-    <div class="container">
-      <div class="welcome">
-        <h2>Bienvenido, Dr. {userData.username} 👋</h2>
-        <p>Gestiona tus citas y disponibilidad</p>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3>Citas Totales</h3>
-          <div class="number">{citas.length}</div>
-        </div>
-        <div class="stat-card">
-          <h3>Citas Pendientes</h3>
-          <div class="number">
-            {citas.filter((c) => c.estado === "pendiente").length}
-          </div>
-        </div>
-        <div class="stat-card">
-          <h3>Citas Confirmadas</h3>
-          <div class="number">
-            {citas.filter((c) => c.estado === "confirmada").length}
-          </div>
-        </div>
-        <div class="stat-card">
-          <h3>Disponibilidades</h3>
-          <div class="number">{disponibilidades.length}</div>
+      <div class="stat-card">
+        <h3>Citas Confirmadas</h3>
+        <div class="number">
+          {citas.filter(c => (c.estado || c.attributes?.estado) === "confirmada").length}
         </div>
       </div>
-
-      <div class="grid-2col">
-        <!-- Mis Citas -->
-        <div class="card">
-          <div class="section-header" style="margin-top: 0;">
-            <h3>📅 Mis Citas</h3>
-          </div>
-
-          {citas.length === 0 ? (
-            <div class="empty-state">
-              <p>No tienes citas programadas</p>
-            </div>
-          ) : (
-            citas.map((cita) => (
-              <div class="appointment-item">
-                <div class="appointment-header">
-                  <span class="appointment-time">
-                    {cita.fecha} - {cita.hora}
-                  </span>
-                  <span class={`badge badge-${cita.estado || "pendiente"}`}>
-                    {cita.estado || "pendiente"}
-                  </span>
-                </div>
-                <div class="appointment-info">
-                  <strong>Cliente:</strong> {cita.cliente?.username || "N/A"}
-                </div>
-                <div class="appointment-info">
-                  <strong>Mascota:</strong> {cita.mascota?.nombre || "N/A"}
-                </div>
-                {cita.motivo && (
-                  <div class="appointment-info">
-                    <strong>Motivo:</strong> {cita.motivo}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-
-        <!-- Mis Disponibilidades -->
-        <div class="card">
-          <div class="section-header" style="margin-top: 0;">
-            <h3>🕒 Mis Disponibilidades</h3>
-          </div>
-
-          {disponibilidades.length === 0 ? (
-            <div class="empty-state">
-              <p>No tienes disponibilidades registradas</p>
-            </div>
-          ) : (
-            disponibilidades.map((disp) => (
-              <div class="disponibilidad-item">
-                <div class="disponibilidad-info">
-                  <div class="disponibilidad-fecha">
-                    📅 {disp.fecha}
-                  </div>
-                  <div class="disponibilidad-horario">
-                    🕐 {disp.hora_inicio} - {disp.hora_fin}
-                  </div>
-                  {disp.cupos_disponibles !== undefined && (
-                    <div class="disponibilidad-cupos">
-                      Cupos: {disp.cupos_disponibles}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      <div class="stat-card">
+        <h3>Disponibilidades</h3>
+        <div class="number">{disponibilidades.length}</div>
       </div>
     </div>
 
-    <script>
-      document.getElementById("btnCerrarSesion")?.addEventListener("click", async () => {
-        try {
-          const response = await fetch("/api/logout", {
-            method: "POST",
-          });
-
-          if (response.ok) {
-            window.location.href = "/login";
-          }
-        } catch (error) {
-          console.error("Error al cerrar sesión:", error);
-          alert("Error al cerrar sesión");
+    <div class="grid-2col">
+      <div class="card">
+        <div class="section-header" style="margin-top: 0;">
+          <h3>📅 Mis Citas</h3>
+        </div>
+        {citas.length === 0
+          ? <div class="empty-state"><p>No tienes citas programadas</p></div>
+          : citas.map((citaRaw) => {
+              const cita = citaRaw.attributes || citaRaw;
+              return (
+                <div class="appointment-item">
+                  <div class="appointment-header">
+                    <span class="appointment-time">
+                      {cita.fecha ? new Date(cita.fecha).toLocaleDateString("es-ES") : "N/D"}
+                      &nbsp;
+                      {cita.fecha ? new Date(cita.fecha).toLocaleTimeString("es-ES", {hour: "2-digit", minute: "2-digit"}) : "N/D"}
+                    </span>
+                    <span class={`badge badge-${cita.estado || "pendiente"}`}>{cita.estado || "pendiente"}</span>
+                  </div>
+                  <div class="appointment-info">
+                    <strong>Cliente:</strong> {cita.cliente?.username || "N/A"}
+                  </div>
+                  <div class="appointment-info">
+                    <strong>Mascota:</strong> {cita.mascota?.nombre || "N/A"}
+                  </div>
+                  {cita.motivo && (
+                    <div class="appointment-info"><strong>Motivo:</strong> {cita.motivo}</div>
+                  )}
+                  {(["pendiente", "confirmada"].includes(cita.estado)) && (
+                    <button class="btn-cancel" data-id={citaRaw.id} onclick="cancelarCita(this)">Cancelar</button>
+                  )}
+                </div>
+              )
+            })
         }
-      });
-    </script>
-  </body>
+      </div>
+      <div class="card">
+        <div class="section-header" style="margin-top: 0;">
+          <h3>🕒 Mis Disponibilidades</h3>
+          <button class="btn-primary" id="btnCrearHorario" style="font-size: 14px; padding: 8px 16px;">+ Crear Horario</button>
+        </div>
+        {disponibilidades.length === 0
+          ? <div class="empty-state">
+              <p>No tienes disponibilidades registradas</p>
+              <button class="btn-primary" id="btnCrearHorario2">Crear primer horario</button>
+            </div>
+          : (
+            <>
+              {disponibilidades.map((dispRaw) => {
+                const disp = dispRaw.attributes || dispRaw;
+                const dispId = dispRaw.documentId || dispRaw.id;
+                return (
+                  <div class="disponibilidad-item">
+                    <div class="disponibilidad-info">
+                      <div class="disponibilidad-fecha">
+                        📅 {disp.fecha ? new Date(disp.fecha).toLocaleDateString("es-ES") : "N/D"}
+                      </div>
+                      <div class="disponibilidad-horario">
+                        🕐 {disp.hora_inicio || "N/A"} - {disp.hora_fin || "N/A"}
+                      </div>
+                      {typeof disp.cupos_disponibles !== "undefined" && (
+                        <div class="disponibilidad-cupos">Cupos: {disp.cupos_disponibles}/{disp.cupos_totales || 0}</div>
+                      )}
+                    </div>
+                    <button class="btn-cancel" data-id={dispId} onclick="cancelarDisponibilidad(this)" style="margin-top: 8px;">Cancelar</button>
+                  </div>
+                )
+              })}
+            </>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para crear horario -->
+  <div id="modalCrearHorario" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📅 Crear Nuevo Horario</h2>
+        <button class="modal-close" id="btnCerrarModal">&times;</button>
+      </div>
+      <form id="formCrearHorario">
+        <div class="form-group">
+          <label for="inputFecha">Fecha:</label>
+          <input type="date" id="inputFecha" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="inputHoraInicio">Hora inicio:</label>
+            <input type="time" id="inputHoraInicio" value="09:00" required />
+          </div>
+          <div class="form-group">
+            <label for="inputHoraFin">Hora fin:</label>
+            <input type="time" id="inputHoraFin" value="17:00" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="inputCupos">Cupos totales:</label>
+          <input type="number" id="inputCupos" value="10" min="1" max="50" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="btnCancelarModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear Horario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script id="citas-data" type="application/json">{JSON.stringify(citas)}</script>
+
+  <script define:vars={{ currentUserId: userData.id, currentUserName: userData.username }}>
+    const STRAPI_URL = 'http://localhost:1337';
+    // Variables globales del usuario
+    window.currentUser = {
+      id: currentUserId,
+      username: currentUserName
+    };
+    
+    // Citas a nivel global
+    try {
+      const dataEl = document.getElementById('citas-data');
+      const serverCitas = dataEl && dataEl.textContent ? JSON.parse(dataEl.textContent) : [];
+      window.citas = window.citas || serverCitas;
+    } catch (e) {
+      window.citas = window.citas || [];
+    }
+
+    document.getElementById('btnCerrarSesion')?.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (response.ok) window.location.href = '/login';
+        else alert('Error al cerrar sesión');
+      } catch (error) {
+        alert('Error al cerrar sesión');
+      }
+    });
+
+    // Cancelar por id interno (uso en dashboards)
+    window.cancelarCita = async (btn) => {
+      const citaId = btn.dataset.id;
+      if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
+
+      try {
+        const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+        const response = await fetch(`${STRAPI_URL}/api/citas/${citaId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ data: { estado: 'cancelada' } }),
+        });
+        if (response.ok) {
+          alert('Cita cancelada correctamente.');
+          window.location.reload();
+        } else {
+          alert('Error al cancelar cita');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    };
+
+    // HU002: Crear horario de disponibilidad con modal
+    const modal = document.getElementById('modalCrearHorario');
+    const form = document.getElementById('formCrearHorario');
+    
+    // Abrir modal
+    window.crearHorario = () => {
+      modal.style.display = 'flex';
+      // Establecer fecha mínima como hoy
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('inputFecha').setAttribute('min', today);
+    };
+
+    // Cerrar modal
+    const cerrarModal = () => {
+      modal.style.display = 'none';
+      form.reset();
+    };
+
+    document.getElementById('btnCerrarModal').addEventListener('click', cerrarModal);
+    document.getElementById('btnCancelarModal').addEventListener('click', cerrarModal);
+    
+    // Cerrar al hacer clic fuera del modal
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) cerrarModal();
+    });
+
+    // Enviar formulario
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const fecha = document.getElementById('inputFecha').value;
+      const horaInicio = document.getElementById('inputHoraInicio').value;
+      const horaFin = document.getElementById('inputHoraFin').value;
+      const cuposTotales = parseInt(document.getElementById('inputCupos').value);
+
+      try {
+        const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+        if (!jwt) {
+          alert('Sesión expirada');
+          window.location.href = '/login';
+          return;
+        }
+
+        if (!window.currentUser || !window.currentUser.id) {
+          alert('Error: No se pudo obtener información del usuario. Por favor recarga la página.');
+          return;
+        }
+
+        // Convertir formato de tiempo HH:mm a HH:mm:ss.SSS que espera Strapi
+        const horaInicioCompleta = horaInicio + ':00.000';
+        const horaFinCompleta = horaFin + ':00.000';
+
+        const requestBody = {
+          data: {
+            fecha: fecha,
+            hora_inicio: horaInicioCompleta,
+            hora_fin: horaFinCompleta,
+            cupos_totales: cuposTotales,
+            cupos_disponibles: cuposTotales,
+            veterinario: window.currentUser.id,
+            publishedAt: new Date().toISOString()
+          }
+        };
+
+        console.log('Enviando horario:', requestBody);
+
+        const response = await fetch(`${STRAPI_URL}/api/disponibles`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const responseData = await response.json();
+        console.log('Respuesta de Strapi:', responseData);
+
+        if (response.ok) {
+          alert('Horario creado correctamente.');
+          cerrarModal();
+          window.location.reload();
+        } else {
+          const errorMsg = responseData.error?.message || JSON.stringify(responseData.error?.details) || 'Error desconocido';
+          console.error('Error completo:', responseData);
+          alert('Error al crear horario: ' + errorMsg);
+        }
+      } catch (error) {
+        console.error('Error al crear horario:', error);
+        alert('Error de conexión: ' + error.message);
+      }
+    });
+
+    // Cancelar disponibilidad
+    window.cancelarDisponibilidad = async (btn) => {
+      const dispId = btn.dataset.id;
+      if (!confirm('¿Seguro que quieres cancelar esta disponibilidad?')) return;
+
+      try {
+        const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+        
+        // Primero obtener los datos del disponible antes de eliminarlo
+        const disponibleResponse = await fetch(`${STRAPI_URL}/api/disponibles/${dispId}?populate=*`, {
+          headers: { 'Authorization': `Bearer ${jwt}` },
+        });
+        
+        let disponibleData = null;
+        if (disponibleResponse.ok) {
+          const data = await disponibleResponse.json();
+          disponibleData = data.data?.attributes || data.data;
+        }
+        
+        // Eliminar la disponibilidad
+        const response = await fetch(`${STRAPI_URL}/api/disponibles/${dispId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+          },
+        });
+
+        if (response.ok) {
+          // Crear notificación para la recepcionista
+          const fechaFormateada = disponibleData?.fecha 
+            ? new Date(disponibleData.fecha).toLocaleDateString('es-ES') 
+            : 'N/D';
+          const horaInicio = disponibleData?.hora_inicio || 'N/A';
+          const horaFin = disponibleData?.hora_fin || 'N/A';
+          
+          await fetch(`${STRAPI_URL}/api/notificacions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              data: {
+                tipo: 'Horario Cancelado',
+                mensaje: `El Dr. ${window.currentUser.username} ha cancelado su disponibilidad del ${fechaFormateada} (${horaInicio} - ${horaFin})`,
+                destinatario: 'Recepcionista',
+                leida: false,
+                publishedAt: new Date().toISOString()
+              }
+            }),
+          });
+          
+          alert('Disponibilidad cancelada correctamente.');
+          window.location.reload();
+        } else {
+          alert('Error al cancelar disponibilidad');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error de conexión');
+      }
+    };
+
+    // Event listeners para botones de crear horario
+    document.getElementById('btnCrearHorario')?.addEventListener('click', window.crearHorario);
+    document.getElementById('btnCrearHorario2')?.addEventListener('click', window.crearHorario);
+  </script>
+</body>
 </html>

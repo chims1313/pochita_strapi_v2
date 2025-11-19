@@ -11,26 +11,28 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "mensaje": {
-      "type": "text"
-    },
     "tipo": {
       "type": "enumeration",
       "enum": [
-        "info",
-        "alerta",
-        "cancelacion"
+        "Horario Cancelado",
+        "Cita Agendada",
+        "Cita Cancelada"
+      ]
+    },
+    "mensaje": {
+      "type": "string"
+    },
+    "destinatario": {
+      "type": "enumeration",
+      "enum": [
+        "Recepcionista",
+        "Veterinario",
+        "Cliente"
       ]
     },
     "leida": {
       "type": "boolean",
       "default": false
-    },
-    "users_permissions_user": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "plugin::users-permissions.user",
-      "inversedBy": "notificacions"
     }
   }
 }

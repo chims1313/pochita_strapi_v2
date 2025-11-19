@@ -11,6 +11,9 @@ if (!jwt) {
 
 let userData;
 let mascotas = [];
+let disponibilidades = [];
+let citas = [];
+let veterinarios = [];
 
 try {
   // Obtener datos del usuario con rol
@@ -44,6 +47,38 @@ try {
 
   console.log("✅ Acceso autorizado a dashboard cliente");
 
+  // Obtener veterinarios usando filtro directo por username
+  // Solución temporal: obtener usuarios conocidos con rol veterinario
+  console.log("🔍 Cargando veterinarios...");
+  
+  const allUsersResponse = await fetch(
+    `${STRAPI_URL}/api/users`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (allUsersResponse.ok) {
+    const allUsers = await allUsersResponse.json();
+    console.log(`📦 Total usuarios cargados: ${allUsers.length}`);
+    
+    // Filtrar veterinarios por username que contenga "veterinario"
+    // Esta es una solución temporal mientras Strapi no expone el campo role
+    veterinarios = allUsers.filter(user => 
+      user.username?.toLowerCase().includes("veterinario") ||
+      user.email?.toLowerCase().includes("veterinario")
+    );
+    
+    console.log(`👨‍⚕️ Veterinarios encontrados: ${veterinarios.length}`);
+    if (veterinarios.length > 0) {
+      console.log("✅ Veterinarios:", veterinarios.map(v => ({ id: v.id, username: v.username })));
+    } else {
+      console.warn("⚠️ No se encontraron veterinarios. Verifica que existan usuarios con 'veterinario' en username o email.");
+    }
+  } else {
+    console.error("❌ Error al cargar usuarios:", allUsersResponse.status);
+  }
+
   // Obtener mascotas del usuario
   const mascotasResponse = await fetch(
     `${STRAPI_URL}/api/mascotas?filters[dueno][id][$eq]=${userData.id}&populate=*`,
@@ -56,6 +91,35 @@ try {
     const mascotasData = await mascotasResponse.json();
     mascotas = mascotasData.data || [];
     console.log(`📦 Mascotas cargadas: ${mascotas.length}`);
+  }
+
+  // Obtener disponibilidades futuras
+  const today = new Date().toISOString().split('T')[0];
+  const disponiblesResponse = await fetch(
+    `${STRAPI_URL}/api/disponibles?filters[fecha][$gte]=${today}&filters[cupos_disponibles][$gt]=0&populate=veterinario&sort=fecha:asc`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (disponiblesResponse.ok) {
+    const disponiblesData = await disponiblesResponse.json();
+    disponibilidades = disponiblesData.data || [];
+    console.log(`📅 Disponibilidades cargadas: ${disponibilidades.length}`);
+  }
+
+  // Obtener citas del cliente
+  const citasResponse = await fetch(
+    `${STRAPI_URL}/api/citas?filters[cliente][id][$eq]=${userData.id}&populate=*&sort=fecha:desc`,
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }
+  );
+
+  if (citasResponse.ok) {
+    const citasData = await citasResponse.json();
+    citas = citasData.data || [];
+    console.log(`📋 Citas cargadas: ${citas.length}`);
   }
 
 } catch (error) {
@@ -91,6 +155,68 @@ import '../styles/cliente_dashboard.css';
         <h2>Bienvenido, {userData.username} 👋</h2>
         <p>Gestiona las mascotas de tu familia</p>
       </div>
+
+      <!-- Sección de Citas -->
+      <div class="section-header">
+        <h2>📅 Mis Citas</h2>
+        <button class="btn-add" id="btnAgendarCita">+ Agendar Cita</button>
+      </div>
+
+      {citas.length === 0 ? (
+        <div class="empty-state">
+          <p>No tienes citas programadas</p>
+          <button class="btn-add" id="btnAgendarCita2">+ Agendar tu primera cita</button>
+        </div>
+      ) : (
+        <div class="citas-grid">
+          {citas.map((citaRaw) => {
+            const cita = citaRaw.attributes || citaRaw;
+            const mascota = cita.mascota?.data?.attributes || cita.mascota;
+            const disponible = cita.disponible?.data?.attributes || cita.disponible;
+            
+            // Obtener veterinario: puede venir directamente de la cita o del disponible
+            let veterinario = null;
+            if (cita.veterinario?.data?.attributes) {
+              veterinario = cita.veterinario.data.attributes;
+            } else if (cita.veterinario && typeof cita.veterinario === 'object') {
+              veterinario = cita.veterinario;
+            } else if (disponible?.veterinario?.data?.attributes) {
+              veterinario = disponible.veterinario.data.attributes;
+            } else if (disponible?.veterinario) {
+              veterinario = disponible.veterinario;
+            }
+            
+            return (
+              <div class={`cita-card cita-${cita.estado || 'pendiente'}`}>
+                <div class="cita-header">
+                  <span class="cita-fecha">
+                    📅 {cita.fecha ? new Date(cita.fecha).toLocaleDateString('es-ES') : 'N/D'}
+                  </span>
+                  <span class={`badge badge-${cita.estado || 'pendiente'}`}>
+                    {cita.estado || 'pendiente'}
+                  </span>
+                </div>
+                <div class="cita-info">
+                  <strong>Mascota:</strong> {mascota?.nombre || 'N/A'}
+                </div>
+                <div class="cita-info">
+                  <strong>Veterinario:</strong> {veterinario?.username || 'N/A'}
+                </div>
+                {cita.motivo && (
+                  <div class="cita-info">
+                    <strong>Motivo:</strong> {cita.motivo}
+                  </div>
+                )}
+                {cita.estado === 'pendiente' && (
+                  <button class="btn-delete" data-id={citaRaw.id || citaRaw.documentId}>
+                    Cancelar Cita
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div class="section-header">
         <h2>Mis Mascotas</h2>
@@ -237,7 +363,57 @@ import '../styles/cliente_dashboard.css';
       </div>
     </div>
 
-    <script define:vars={{ userId: userData.id, mascotasData: mascotas }}>
+    <!-- MODAL AGENDAR CITA -->
+    <div class="modal-overlay" id="modalCita">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📅 Agendar Nueva Cita</h2>
+          <button class="btn-close" id="btnCerrarModalCita">✕</button>
+        </div>
+
+        <form id="formCita">
+          <div class="form-group">
+            <label for="selectMascota">Selecciona tu mascota *</label>
+            <select id="selectMascota" required>
+              <option value="">Selecciona una mascota</option>
+              {mascotas.map((mascota) => (
+                <option value={mascota.documentId || mascota.id}>{mascota.nombre} - {mascota.especie}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="selectVeterinario">Selecciona el veterinario *</label>
+            <select id="selectVeterinario" required>
+              <option value="">Selecciona un veterinario</option>
+              {veterinarios.map((vet) => (
+                <option value={vet.id}>Dr. {vet.username}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="selectDisponibilidad">Selecciona fecha y hora *</label>
+            <select id="selectDisponibilidad" required disabled>
+              <option value="">Primero selecciona un veterinario</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="motivoCita">Motivo de la consulta *</label>
+            <textarea
+              id="motivoCita"
+              placeholder="Describe el motivo de la consulta..."
+              required
+            ></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit">Agendar Cita</button>
+        </form>
+      </div>
+    </div>
+
+    <script define:vars={{ userId: userData.id, mascotasData: mascotas, disponibilidadesData: disponibilidades }}>
       const STRAPI_URL = 'http://localhost:1337';
       
       // Modal
@@ -449,6 +625,187 @@ import '../styles/cliente_dashboard.css';
               console.error('Error:', error);
               alert('Error al eliminar la mascota');
             }
+          }
+        });
+      });
+
+      // ===== MODAL AGENDAR CITA =====
+      const modalCita = document.getElementById('modalCita');
+      const btnAgendarCita = document.getElementById('btnAgendarCita');
+      const btnAgendarCita2 = document.getElementById('btnAgendarCita2');
+      const btnCerrarModalCita = document.getElementById('btnCerrarModalCita');
+      const formCita = document.getElementById('formCita');
+      const selectVeterinario = document.getElementById('selectVeterinario');
+      const selectDisponibilidad = document.getElementById('selectDisponibilidad');
+
+      // Filtrar horarios por veterinario seleccionado
+      selectVeterinario?.addEventListener('change', function() {
+        const veterinarioId = parseInt(this.value);
+        selectDisponibilidad.innerHTML = '<option value="">Selecciona un horario disponible</option>';
+        
+        if (!veterinarioId) {
+          selectDisponibilidad.disabled = true;
+          return;
+        }
+
+        // Filtrar disponibilidades por veterinario
+        const disponibilidadesFiltradas = disponibilidadesData.filter(dispRaw => {
+          const disp = dispRaw.attributes || dispRaw;
+          const vet = disp.veterinario?.data || disp.veterinario;
+          const vetId = vet?.id;
+          return vetId === veterinarioId;
+        });
+
+        if (disponibilidadesFiltradas.length === 0) {
+          selectDisponibilidad.innerHTML = '<option value="">No hay horarios disponibles</option>';
+          selectDisponibilidad.disabled = true;
+          return;
+        }
+
+        // Agregar opciones de horarios
+        disponibilidadesFiltradas.forEach(dispRaw => {
+          const disp = dispRaw.attributes || dispRaw;
+          const fecha = disp.fecha ? new Date(disp.fecha).toLocaleDateString('es-ES') : 'N/D';
+          const horaInicio = disp.hora_inicio?.substring(0, 5) || 'N/A';
+          const horaFin = disp.hora_fin?.substring(0, 5) || 'N/A';
+          const cupos = disp.cupos_disponibles || 0;
+          
+          const option = document.createElement('option');
+          option.value = dispRaw.id;
+          option.dataset.fecha = disp.fecha;
+          option.dataset.veterinarioId = veterinarioId;
+          option.textContent = `${fecha} | ${horaInicio} - ${horaFin} | Cupos: ${cupos}`;
+          selectDisponibilidad.appendChild(option);
+        });
+
+        selectDisponibilidad.disabled = false;
+      });
+
+      // Abrir modal de cita
+      function abrirModalCita() {
+        modalCita.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        // Reset selects
+        selectVeterinario.value = '';
+        selectDisponibilidad.innerHTML = '<option value="">Primero selecciona un veterinario</option>';
+        selectDisponibilidad.disabled = true;
+      }
+
+      // Cerrar modal de cita
+      function cerrarModalCita() {
+        modalCita.classList.remove('active');
+        document.body.style.overflow = '';
+        formCita.reset();
+        selectDisponibilidad.innerHTML = '<option value="">Primero selecciona un veterinario</option>';
+        selectDisponibilidad.disabled = true;
+      }
+
+      btnAgendarCita?.addEventListener('click', abrirModalCita);
+      btnAgendarCita2?.addEventListener('click', abrirModalCita);
+      btnCerrarModalCita?.addEventListener('click', cerrarModalCita);
+
+      // Cerrar al hacer clic fuera del modal
+      modalCita?.addEventListener('click', (e) => {
+        if (e.target === modalCita) cerrarModalCita();
+      });
+
+      // Enviar formulario de cita
+      formCita?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const mascotaId = document.getElementById('selectMascota').value;
+        const veterinarioId = document.getElementById('selectVeterinario').value;
+        const disponibleId = document.getElementById('selectDisponibilidad').value;
+        const motivo = document.getElementById('motivoCita').value;
+        const selectedOption = document.getElementById('selectDisponibilidad').selectedOptions[0];
+        const fechaCita = selectedOption?.dataset.fecha;
+
+        if (!mascotaId || !veterinarioId || !disponibleId || !motivo) {
+          alert('Por favor completa todos los campos');
+          return;
+        }
+
+        console.log('Datos del formulario:', {
+          mascotaId,
+          veterinarioId,
+          disponibleId,
+          fechaCita,
+          motivo,
+          userId
+        });
+
+        try {
+          const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+
+          // Crear fecha+hora completa para la cita (fecha del disponible con hora de inicio)
+          const citaData = {
+            data: {
+              fecha: fechaCita, // datetime completo
+              estado: 'pendiente',
+              motivo: motivo,
+              cliente: userId, // ID numérico del usuario
+              mascota: mascotaId, // documentId de mascota
+              veterinario: parseInt(veterinarioId), // ID del veterinario
+              publishedAt: new Date().toISOString()
+            }
+          };
+
+          console.log('Enviando cita a Strapi:', citaData);
+
+          const response = await fetch(`${STRAPI_URL}/api/citas`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`,
+            },
+            body: JSON.stringify(citaData),
+          });
+
+          const responseData = await response.json();
+          console.log('Respuesta completa de Strapi:', responseData);
+
+          if (response.ok) {
+            alert('¡Cita agendada exitosamente!');
+            cerrarModalCita();
+            window.location.reload();
+          } else {
+            const errorMsg = responseData.error?.message || JSON.stringify(responseData.error?.details) || 'Error desconocido';
+            console.error('Error completo:', responseData);
+            alert('Error al agendar la cita: ' + errorMsg);
+          }
+        } catch (error) {
+          console.error('Error de conexión:', error);
+          alert('Error de conexión al agendar la cita');
+        }
+      });
+
+      // Cancelar cita
+      document.querySelectorAll('.cita-card .btn-delete').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const citaId = this.dataset.id;
+          if (!confirm('¿Estás seguro de que quieres cancelar esta cita?')) return;
+
+          try {
+            const jwt = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
+
+            const response = await fetch(`${STRAPI_URL}/api/citas/${citaId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({ data: { estado: 'cancelada' } }),
+            });
+
+            if (response.ok) {
+              alert('Cita cancelada exitosamente');
+              window.location.reload();
+            } else {
+              alert('Error al cancelar la cita');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cancelar la cita');
           }
         });
       });
